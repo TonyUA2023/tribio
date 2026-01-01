@@ -18,7 +18,8 @@
       "Bash(composer show:*)",
       "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\test_email.php\")",
       "Bash(del \"test_pending_email.php\")",
-      "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\test_pending_email.php\")"
+      "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\test_pending_email.php\")",
+      "Bash(find:*)"
     ]
   }
 }
