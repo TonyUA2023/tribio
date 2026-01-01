@@ -1,0 +1,28 @@
+{
+    "name": "TRIBIO - Sistema NFC",
+    "short_name": "TRIBIO",
+    "description": "Sistema de gestión de reservas y perfiles NFC",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#00D9FF",
+    "icons": [
+        {
+            "src": "/logo/logo.ico",
+            "sizes": "48x48 32x32 16x16",
+            "type": "image/x-icon"
+        },
+        {
+            "src": "/logo/logo.ico",
+            "sizes": "192x192",
+            "type": "image/x-icon",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/logo/logo.ico",
+            "sizes": "512x512",
+            "type": "image/x-icon",
+            "purpose": "any maskable"
+        }
+    ]
+}
