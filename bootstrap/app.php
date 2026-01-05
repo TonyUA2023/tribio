@@ -34,5 +34,38 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Renderizar custom exceptions
+        $exceptions->renderable(function (\App\Exceptions\Custom\AccountNotFoundException $e) {
+            return $e->render();
+        });
+
+        $exceptions->renderable(function (\App\Exceptions\Custom\ProfileNotFoundException $e) {
+            return $e->render();
+        });
+
+        $exceptions->renderable(function (\App\Exceptions\Custom\BookingConflictException $e) {
+            return $e->render();
+        });
+
+        $exceptions->renderable(function (\App\Exceptions\Custom\UnauthorizedException $e) {
+            return $e->render();
+        });
+
+        $exceptions->renderable(function (\App\Exceptions\Custom\ValidationException $e) {
+            return $e->render();
+        });
+
+        $exceptions->renderable(function (\App\Exceptions\Custom\MediaUploadException $e) {
+            return $e->render();
+        });
+
+        $exceptions->renderable(function (\App\Exceptions\Custom\EmailSendException $e) {
+            return $e->render();
+        });
+
+        // Reportar errores críticos (opcional: integración con Sentry)
+        $exceptions->reportable(function (\Throwable $e) {
+            // Aquí puedes integrar con servicios como Sentry, Bugsnag, etc.
+            // Sentry::captureException($e);
+        });
     })->create();

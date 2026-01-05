@@ -16,9 +16,9 @@ class DashboardController extends Controller
     public function index(): Response
     {
         // 1. Obtenemos todas las cuentas de clientes
-        // 2. Usamos 'with' para cargar las relaciones (Plan y Dueño)
+        // 2. Usamos 'with' para cargar las relaciones (Plan, Dueño, Categoría y Módulos)
         //    y así evitar problemas de N+1 (consultas lentas).
-        $accounts = Account::with(['plan', 'owner'])
+        $accounts = Account::with(['plan', 'owner', 'businessCategory', 'activeModules'])
             ->orderBy('name')
             ->get();
 

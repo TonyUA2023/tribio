@@ -24,6 +24,20 @@ interface Owner {
     role: string;
 }
 
+interface BusinessCategory {
+    id: number;
+    slug: string;
+    name: string;
+    icon: string | null;
+}
+
+interface AccountModule {
+    id: number;
+    module_slug: string;
+    is_active: boolean;
+    config: any;
+}
+
 interface Account {
     id: number;
     name: string;
@@ -33,6 +47,8 @@ interface Account {
     next_billing_date: string | null;
     plan: Plan | null;
     owner: Owner;
+    business_category: BusinessCategory | null;
+    active_modules: AccountModule[];
 }
 
 interface PageProps {
@@ -205,7 +221,10 @@ export default function AdminDashboard() {
                                             Contacto
                                         </th>
                                         <th className="pb-3 font-semibold text-neutral-700 dark:text-neutral-300">
-                                            Tipo
+                                            Categoría
+                                        </th>
+                                        <th className="pb-3 font-semibold text-neutral-700 dark:text-neutral-300">
+                                            Módulos
                                         </th>
                                         <th className="pb-3 font-semibold text-neutral-700 dark:text-neutral-300">
                                             Plan
@@ -244,17 +263,36 @@ export default function AdminDashboard() {
                                                 </div>
                                             </td>
                                             <td className="py-4">
-                                                <span
-                                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                                        account.type === 'company'
-                                                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                                    }`}
-                                                >
-                                                    {account.type === 'company'
-                                                        ? '🏢 Empresa'
-                                                        : '👤 Individual'}
-                                                </span>
+                                                {account.business_category ? (
+                                                    <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                                                        {account.business_category.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-neutral-400">Sin categoría</span>
+                                                )}
+                                            </td>
+                                            <td className="py-4">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {account.active_modules && account.active_modules.length > 0 ? (
+                                                        <>
+                                                            {account.active_modules.slice(0, 3).map((module) => (
+                                                                <span
+                                                                    key={module.id}
+                                                                    className="inline-flex items-center rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+                                                                >
+                                                                    {module.module_slug}
+                                                                </span>
+                                                            ))}
+                                                            {account.active_modules.length > 3 && (
+                                                                <span className="text-xs text-neutral-500">
+                                                                    +{account.active_modules.length - 3}
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-xs text-neutral-400">Sin módulos</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="py-4 text-neutral-700 dark:text-neutral-300">
                                                 {account.plan?.name ?? 'Sin Plan'}
@@ -420,6 +458,44 @@ export default function AdminDashboard() {
                                         <span className="font-medium text-neutral-900 dark:text-neutral-100">
                                             {selectedAccount.owner.role}
                                         </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Categoría y Módulos */}
+                            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-900/20">
+                                <h3 className="mb-3 font-semibold text-indigo-900 dark:text-indigo-100">
+                                    Categoría y Módulos
+                                </h3>
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-indigo-800 dark:text-indigo-200">
+                                            Categoría de Negocio:
+                                        </span>
+                                        <span className="font-medium text-indigo-900 dark:text-indigo-100">
+                                            {selectedAccount.business_category?.name ?? 'Sin categoría'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div className="mb-2 text-indigo-800 dark:text-indigo-200">
+                                            Módulos Activos ({selectedAccount.active_modules?.length ?? 0}):
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedAccount.active_modules && selectedAccount.active_modules.length > 0 ? (
+                                                selectedAccount.active_modules.map((module) => (
+                                                    <span
+                                                        key={module.id}
+                                                        className="inline-flex items-center rounded-md bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
+                                                    >
+                                                        {module.module_slug}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-xs text-indigo-600 dark:text-indigo-400">
+                                                    No hay módulos configurados
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

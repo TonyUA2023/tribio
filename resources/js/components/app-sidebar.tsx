@@ -20,6 +20,7 @@ import {
     Settings,
     Users,
     Star,
+    BookOpen,
 } from 'lucide-react';
 import AppLogo from './app-logo';
 import AppearanceToggleDropdown from './appearance-dropdown';
@@ -44,6 +45,11 @@ const mainNavItems: NavItem[] = [
                 href: settings.page(),
             },
         ],
+    },
+    {
+        title: 'Historias',
+        href: '/stories',
+        icon: BookOpen,
     },
     {
         title: 'Citas',

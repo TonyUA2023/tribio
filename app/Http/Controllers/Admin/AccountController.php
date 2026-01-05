@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountModule;
+use App\Models\BusinessCategory;
 use App\Models\Plan;
+use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,9 +44,12 @@ class AccountController extends Controller
                 'regex:/^[a-z0-9-]+$/',
                 'unique:accounts,slug'
             ],
-            'account_type' => ['required', Rule::in(['company', 'personal'])],
+            'account_type' => ['required', Rule::in(['company', 'personal', 'business'])],
             'plan_id' => 'required|exists:plans,id',
             'payment_status' => ['required', Rule::in(['active', 'due', 'suspended'])],
+            'business_category_id' => 'nullable|exists:business_categories,id',
+            'modules' => 'nullable|array',
+            'modules.*' => 'string',
 
             // Datos del usuario dueño
             'owner_name' => 'required|string|max:255',
@@ -71,15 +77,61 @@ class AccountController extends Controller
                 'type' => $validated['account_type'],
                 'slug' => $validated['account_slug'],
                 'payment_status' => $validated['payment_status'],
+                'business_category_id' => $validated['business_category_id'] ?? null,
                 'next_billing_date' => $this->calculateNextBillingDate($validated['plan_id'])
             ]);
+
+            // 3. Crear perfil por defecto para la cuenta
+            $profile = Profile::create([
+                'account_id' => $account->id,
+                'name' => $validated['account_name'],
+                'title' => $validated['account_name'],
+                'slug' => $validated['account_slug'],
+                'notification_email' => $validated['owner_email'],
+                'render_type' => 'custom',
+                'custom_view_path' => 'Custom/Standard',
+                'data' => [
+                    'bio' => '',
+                    'phone' => '',
+                    'address' => '',
+                    'hours' => '',
+                    'services' => [],
+                    'primaryColor' => '#1e40af',
+                    'secondaryColor' => '#3b82f6',
+                ]
+            ]);
+
+            // 4. Crear módulos si fueron seleccionados
+            if (!empty($validated['modules'])) {
+                foreach ($validated['modules'] as $moduleSlug) {
+                    AccountModule::create([
+                        'account_id' => $account->id,
+                        'module_slug' => $moduleSlug,
+                        'is_active' => true,
+                        'config' => null,
+                    ]);
+                }
+            } elseif ($validated['business_category_id']) {
+                // Si no se seleccionaron módulos manualmente, usar los por defecto de la categoría
+                $category = BusinessCategory::find($validated['business_category_id']);
+                if ($category && $category->default_modules) {
+                    foreach ($category->default_modules as $moduleSlug) {
+                        AccountModule::create([
+                            'account_id' => $account->id,
+                            'module_slug' => $moduleSlug,
+                            'is_active' => true,
+                            'config' => $category->default_config[$moduleSlug] ?? null,
+                        ]);
+                    }
+                }
+            }
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Cliente creado exitosamente',
-                'account' => $account->load(['owner', 'plan'])
+                'account' => $account->load(['owner', 'plan', 'businessCategory', 'activeModules'])
             ], 201);
 
         } catch (\Exception $e) {
@@ -106,21 +158,47 @@ class AccountController extends Controller
                 'regex:/^[a-z0-9-]+$/',
                 Rule::unique('accounts', 'slug')->ignore($account->id)
             ],
-            'type' => ['sometimes', Rule::in(['company', 'personal'])],
+            'type' => ['sometimes', Rule::in(['company', 'personal', 'business'])],
             'plan_id' => 'sometimes|exists:plans,id',
             'payment_status' => ['sometimes', Rule::in(['active', 'due', 'suspended'])],
+            'business_category_id' => 'nullable|exists:business_categories,id',
+            'modules' => 'nullable|array',
+            'modules.*' => 'string',
         ]);
 
         try {
+            DB::beginTransaction();
+
+            // Actualizar datos básicos de la cuenta
             $account->update($validated);
+
+            // Si se enviaron módulos, actualizar la configuración de módulos
+            if (isset($validated['modules'])) {
+                // Eliminar módulos existentes
+                $account->modules()->delete();
+
+                // Crear nuevos módulos
+                foreach ($validated['modules'] as $moduleSlug) {
+                    AccountModule::create([
+                        'account_id' => $account->id,
+                        'module_slug' => $moduleSlug,
+                        'is_active' => true,
+                        'config' => null,
+                    ]);
+                }
+            }
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Cliente actualizado exitosamente',
-                'account' => $account->fresh(['owner', 'plan'])
+                'account' => $account->fresh(['owner', 'plan', 'businessCategory', 'activeModules'])
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al actualizar: ' . $e->getMessage()

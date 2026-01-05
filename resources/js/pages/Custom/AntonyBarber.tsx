@@ -18,6 +18,8 @@ import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { ReviewsList } from '@/components/reviews/ReviewsList';
 import { ScrollReveal } from '@/components/animated/ScrollReveal';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { StoryCircle } from '@/components/stories/StoryCircle';
+import PostGridModal from '@/components/posts/PostGridModal';
 
 // --- Interfaces (tu estructura) ---
 interface Link {
@@ -91,8 +93,8 @@ const resolveMediaUrl = (raw?: string) => {
   if (s.startsWith('/')) return s;
 
   // Si guardas "storage/xxxx"
-  const cleaned = s.replace(/^storage\//, '');
-  return `/storage/${cleaned}`;
+  const cleaned = s.replace(/^uploaded_files\//, '');
+  return `/uploaded_files/${cleaned}`;
 };
 
 /**
@@ -339,19 +341,16 @@ const MajesticBarberCard = () => {
 
           <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 px-6 z-10 text-center">
             <div className="mb-5 animate-fade-up">
-              <div className="w-24 h-24 rounded-full border border-amber-500/30 p-1 bg-black/60 backdrop-blur-sm shadow-[0_0_30px_rgba(251,191,36,0.2)]">
-                {logoImage ? (
-                  <img
-                    src={logoImage}
-                    className="w-full h-full object-cover rounded-full"
-                    alt="Logo"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-amber-500 text-2xl font-bold">
-                    {profile.name?.slice(0, 2)?.toUpperCase() || 'MB'}
-                  </div>
-                )}
-              </div>
+              <StoryCircle
+                profileId={profile.id}
+                logoUrl={logoImage}
+                name={profile.name}
+                size="md"
+                onOpenStories={() => {
+                  // TODO: Implement story viewer modal
+                  console.log('Opening stories for profile:', profile.id);
+                }}
+              />
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-2 animate-fade-up delay-100 tracking-tight drop-shadow-2xl">
@@ -422,6 +421,32 @@ const MajesticBarberCard = () => {
                     brandColor="from-cyan-500 via-black to-red-500"
                   />
                 )}
+              </div>
+            </section>
+          </ScrollReveal>
+
+          {/* Posts Feed (Grid 3x3 + Modal Estilo TikTok) */}
+          <ScrollReveal animation="fade">
+            <section>
+              <h2 className="text-white font-bold text-xl mb-6 flex items-center gap-2 px-2">
+                <span className="text-amber-500">🎬</span>
+                <span>Nuestras <span className="text-amber-500">Publicaciones</span></span>
+              </h2>
+              <div className="rounded-2xl overflow-hidden border border-white/10">
+                <PostGridModal
+                  accountSlug="antony-barber"
+                  accentColor="#f59e0b"
+                  ctaButton={{
+                    label: 'Agendar Cita',
+                    onClick: () => {
+                      const bookingWidget = document.querySelector('.booking-widget-trigger');
+                      if (bookingWidget) {
+                        (bookingWidget as HTMLElement).click();
+                      }
+                    },
+                    icon: <FaClock className="w-4 h-4" />,
+                  }}
+                />
               </div>
             </section>
           </ScrollReveal>

@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Template {
     id: number;
@@ -71,6 +72,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function ClientDashboard({ account, profile, bookings, user }: PageProps) {
     const [localBookings, setLocalBookings] = React.useState(bookings);
     const [updatingBookingId, setUpdatingBookingId] = React.useState<number | null>(null);
+    const toast = useToast();
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -110,13 +112,21 @@ export default function ClientDashboard({ account, profile, bookings, user }: Pa
                             : booking
                     )
                 );
-                alert('Estado actualizado exitosamente');
+
+                // Mostrar mensaje apropiado según el estado
+                if (newStatus === 'confirmed') {
+                    toast.success('Cita confirmada exitosamente');
+                } else if (newStatus === 'cancelled') {
+                    toast.warning('Cita rechazada correctamente');
+                } else if (newStatus === 'completed') {
+                    toast.success('Cita marcada como completada');
+                }
             } else {
-                alert('Error al actualizar el estado');
+                toast.error(result.message || 'No se pudo actualizar el estado de la cita');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al procesar la solicitud');
+            toast.error('Error al procesar la solicitud. Por favor, intenta de nuevo.');
         } finally {
             setUpdatingBookingId(null);
         }
@@ -231,7 +241,7 @@ export default function ClientDashboard({ account, profile, bookings, user }: Pa
                                             navigator.clipboard.writeText(
                                                 `${window.location.origin}/${account.slug}/${profile.slug}`
                                             );
-                                            alert('¡URL copiada al portapapeles!');
+                                            toast.success('¡URL copiada al portapapeles!');
                                         }}
                                         className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
                                     >

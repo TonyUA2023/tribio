@@ -15,6 +15,7 @@ use App\Http\Controllers\PageSettingsController;
 use App\Http\Controllers\BusinessSettingsController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\ReviewManagementController;
+use App\Http\Controllers\Api\StoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,6 +75,52 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/{review}/approve', [ReviewManagementController::class, 'approve'])->name('approve');
         Route::patch('/{review}/reject', [ReviewManagementController::class, 'reject'])->name('reject');
     });
+
+    // Módulo de Historias (Stories)
+    Route::prefix('stories')->name('stories.')->group(function () {
+        Route::get('/', function () {
+            return Inertia::render('stories/index');
+        })->name('index');
+
+        Route::get('/create', function () {
+            $user = auth()->user();
+            $profile = $user->account?->profiles->first();
+
+            return Inertia::render('stories/create', [
+                'profile' => $profile,
+            ]);
+        })->name('create');
+    });
+
+    // API de Stories (autenticadas con sesión web)
+    Route::prefix('api')->group(function () {
+        Route::get('/my-stories', [StoryController::class, 'myStories']);
+        Route::post('/stories', [StoryController::class, 'store']);
+        Route::delete('/stories/{story}', [StoryController::class, 'destroy']);
+        Route::get('/stories/{story}/analytics', [StoryController::class, 'analytics']);
+    });
+
+    // Módulo de Productos
+    Route::prefix('products')->name('products.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ProductController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\ProductController::class, 'store'])->name('store');
+        Route::put('/{product}', [\App\Http\Controllers\ProductController::class, 'update'])->name('update');
+        Route::delete('/{product}', [\App\Http\Controllers\ProductController::class, 'destroy'])->name('destroy');
+        Route::patch('/{product}/toggle-availability', [\App\Http\Controllers\ProductController::class, 'toggleAvailability'])->name('toggle-availability');
+        Route::patch('/{product}/toggle-featured', [\App\Http\Controllers\ProductController::class, 'toggleFeatured'])->name('toggle-featured');
+        Route::post('/update-order', [\App\Http\Controllers\ProductController::class, 'updateOrder'])->name('update-order');
+    });
+
+    // Módulo de Pedidos
+    Route::prefix('orders')->name('orders.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\OrderController::class, 'index'])->name('index');
+        Route::get('/{order}', [\App\Http\Controllers\OrderController::class, 'show'])->name('show');
+        Route::patch('/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('update-status');
+        Route::patch('/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('update-payment-status');
+        Route::patch('/{order}/notes', [\App\Http\Controllers\OrderController::class, 'updateNotes'])->name('update-notes');
+        Route::delete('/{order}', [\App\Http\Controllers\OrderController::class, 'destroy'])->name('destroy');
+        Route::get('/stats/dashboard', [\App\Http\Controllers\OrderController::class, 'stats'])->name('stats');
+    });
 });
 
 require __DIR__.'/settings.php';
@@ -103,6 +150,36 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
 // --- RUTAS PÚBLICAS DE PERFILES (COMODÍN) ---
 // *** ESTAS RUTAS AHORA VAN AL FINAL ***
+
+// Ruta para feed de posts estilo TikTok
+Route::get('/{account_slug}/posts', function ($accountSlug) {
+    // Buscar la cuenta
+    $account = \App\Models\Account::where('slug', $accountSlug)->firstOrFail();
+
+    // Obtener el primer perfil de la cuenta
+    $profile = $account->profiles()->first();
+
+    if (!$profile) {
+        abort(404, 'No se encontró un perfil para esta cuenta');
+    }
+
+    // Obtener datos del perfil (están en el campo JSON 'data')
+    $profileData = $profile->data ?? [];
+
+    return Inertia::render('Posts/Feed', [
+        'accountSlug' => $accountSlug,
+        'accentColor' => $profileData['accent_color'] ?? '#f59e0b',
+        'profileId' => $profile->id,
+        'businessName' => $account->name,
+        'services' => $profileData['services'] ?? [],
+        'socialLinks' => [
+            'instagram' => $profileData['instagram'] ?? null,
+            'facebook' => $profileData['facebook'] ?? null,
+            'tiktok' => $profileData['tiktok'] ?? null,
+            'whatsapp' => $profileData['whatsapp'] ?? null,
+        ],
+    ]);
+})->name('posts.feed');
 
 // Ruta para mostrar cuenta/perfil por defecto (sin slug de perfil)
 Route::get('/{account_slug}', [ProfileDisplayController::class, 'showDefault'])

@@ -21,6 +21,18 @@ export default defineConfig({
             formVariants: true,
         }),
     ],
+    server: {
+        host: '0.0.0.0', // Permite acceso desde cualquier IP de la red
+        port: 5173,
+        strictPort: true,
+        hmr: {
+            host: '192.168.18.129', // Tu IP local
+            protocol: 'ws',
+        },
+        watch: {
+            usePolling: true,
+        },
+    },
     esbuild: {
         jsx: 'automatic',
     },

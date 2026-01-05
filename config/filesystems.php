@@ -40,8 +40,10 @@ return [
 
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            // En producción usa uploaded_files fuera de Laravel, en local usa storage/app/public
+            'root' => env('FILESYSTEM_PUBLIC_ROOT', storage_path('app/public')),
+            // URL pública: /uploaded_files en producción, /storage en local
+            'url' => env('APP_URL').'/'.env('FILESYSTEM_PUBLIC_PATH', 'storage'),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, useEffect, useState } from 'react';
-import { useToast } from '@/components/toast-container';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Plan {
     id: number;
@@ -12,8 +12,18 @@ interface Plan {
     billing_cycle: string;
 }
 
+interface BusinessCategory {
+    id: number;
+    slug: string;
+    name: string;
+    icon: string | null;
+    default_modules: string[];
+    children?: BusinessCategory[];
+}
+
 interface PageProps {
     plans: Plan[];
+    categories: BusinessCategory[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -28,16 +38,20 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function AccountCreate() {
-    const { plans } = usePage<PageProps>().props;
+    const { plans, categories } = usePage<PageProps>().props;
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { showSuccess, showError } = useToast();
+    const [selectedModules, setSelectedModules] = useState<string[]>([]);
+    const [availableModules, setAvailableModules] = useState<string[]>([]);
+    const { success, error } = useToast();
 
     const { data, setData, post, processing, errors, reset } = useForm({
         account_name: '',
         account_slug: '',
-        account_type: 'personal' as 'company' | 'personal',
+        account_type: 'business' as 'company' | 'personal' | 'business',
         plan_id: plans.length > 0 ? plans[0].id : 0,
         payment_status: 'active' as 'active' | 'due' | 'suspended',
+        business_category_id: null as number | null,
+        modules: [] as string[],
         owner_name: '',
         owner_email: '',
         owner_password: '',
@@ -55,6 +69,33 @@ export default function AccountCreate() {
         }
     }, [data.account_name]);
 
+    // Actualizar módulos disponibles cuando cambia la categoría
+    useEffect(() => {
+        if (data.business_category_id) {
+            const allCategories = categories.flatMap(cat => [cat, ...(cat.children || [])]);
+            const selectedCategory = allCategories.find(cat => cat.id === data.business_category_id);
+
+            if (selectedCategory && selectedCategory.default_modules) {
+                setAvailableModules(selectedCategory.default_modules);
+                setSelectedModules(selectedCategory.default_modules);
+                setData('modules', selectedCategory.default_modules);
+            }
+        } else {
+            setAvailableModules([]);
+            setSelectedModules([]);
+            setData('modules', []);
+        }
+    }, [data.business_category_id]);
+
+    const handleModuleToggle = (moduleSlug: string) => {
+        const newModules = selectedModules.includes(moduleSlug)
+            ? selectedModules.filter(m => m !== moduleSlug)
+            : [...selectedModules, moduleSlug];
+
+        setSelectedModules(newModules);
+        setData('modules', newModules);
+    };
+
     const handleSubmit: FormEventHandler = (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -62,7 +103,7 @@ export default function AccountCreate() {
         post('/admin/accounts', {
             preserveScroll: true,
             onSuccess: () => {
-                showSuccess('El cliente ha sido creado exitosamente');
+                success('El cliente ha sido creado exitosamente');
                 setTimeout(() => {
                     router.visit('/admin/dashboard');
                 }, 1500);
@@ -70,7 +111,7 @@ export default function AccountCreate() {
             onError: (errors) => {
                 console.error('Errores:', errors);
                 const errorMessage = Object.values(errors).flat().join(', ') || 'Error al crear el cliente';
-                showError(errorMessage);
+                error(errorMessage);
                 setIsSubmitting(false);
             },
             onFinish: () => {
@@ -155,13 +196,14 @@ export default function AccountCreate() {
                                 <select
                                     value={data.account_type}
                                     onChange={(e) =>
-                                        setData('account_type', e.target.value as 'company' | 'personal')
+                                        setData('account_type', e.target.value as 'company' | 'personal' | 'business')
                                     }
                                     className="w-full rounded-lg border border-neutral-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
                                     required
                                 >
                                     <option value="personal">👤 Personal (Emprendedor Individual)</option>
                                     <option value="company">🏢 Empresa (Múltiples Empleados)</option>
+                                    <option value="business">💼 Negocio (Categoría Modular)</option>
                                 </select>
                                 {errors.account_type && (
                                     <p className="mt-1 text-sm text-red-600">{errors.account_type}</p>
@@ -218,6 +260,37 @@ export default function AccountCreate() {
                                 </select>
                                 {errors.payment_status && (
                                     <p className="mt-1 text-sm text-red-600">{errors.payment_status}</p>
+                                )}
+                            </div>
+
+                            {/* Categoría de Negocio */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Categoría de Negocio
+                                </label>
+                                <select
+                                    value={data.business_category_id || ''}
+                                    onChange={(e) =>
+                                        setData('business_category_id', e.target.value ? parseInt(e.target.value) : null)
+                                    }
+                                    className="w-full rounded-lg border border-neutral-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+                                >
+                                    <option value="">Seleccionar categoría...</option>
+                                    {categories.map((category) => (
+                                        <optgroup key={category.id} label={category.name}>
+                                            {category.children && category.children.map((child) => (
+                                                <option key={child.id} value={child.id}>
+                                                    {child.name}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-neutral-500">
+                                    Selecciona el tipo de negocio para cargar módulos sugeridos
+                                </p>
+                                {errors.business_category_id && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.business_category_id}</p>
                                 )}
                             </div>
                         </div>
@@ -312,6 +385,43 @@ export default function AccountCreate() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Módulos Section */}
+                    {availableModules.length > 0 && (
+                        <div className="rounded-xl border border-sidebar-border/70 bg-white p-6 dark:border-sidebar-border dark:bg-neutral-900">
+                            <h2 className="mb-4 text-xl font-semibold">Módulos del Negocio</h2>
+                            <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+                                Selecciona los módulos que estarán disponibles para este negocio
+                            </p>
+
+                            <div className="grid gap-3 md:grid-cols-3">
+                                {availableModules.map((moduleSlug) => (
+                                    <label
+                                        key={moduleSlug}
+                                        className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-4 transition-all ${
+                                            selectedModules.includes(moduleSlug)
+                                                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                                                : 'border-neutral-300 bg-white hover:border-indigo-300 dark:border-neutral-600 dark:bg-neutral-800'
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedModules.includes(moduleSlug)}
+                                            onChange={() => handleModuleToggle(moduleSlug)}
+                                            className="h-5 w-5 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="font-medium capitalize">
+                                            {moduleSlug.replace(/-/g, ' ')}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+
+                            {errors.modules && (
+                                <p className="mt-2 text-sm text-red-600">{errors.modules}</p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Botones de Acción */}
                     <div className="flex justify-end gap-4 rounded-xl border border-sidebar-border/70 bg-white p-6 dark:border-sidebar-border dark:bg-neutral-900">

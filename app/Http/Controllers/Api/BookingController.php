@@ -8,9 +8,14 @@ use App\Mail\NewBookingNotification;
 use App\Models\Booking;
 use App\Models\Profile;
 use App\Models\PendingEmail;
+use App\Exceptions\Custom\ProfileNotFoundException;
+use App\Exceptions\Custom\BookingConflictException;
+use App\Exceptions\Custom\ValidationException;
+use App\Exceptions\Custom\EmailSendException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon; // Importante para manejar formatos de hora con precisión
 
 class BookingController extends Controller
@@ -32,10 +37,7 @@ class BookingController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+            throw new ValidationException($validator->errors()->toArray(), 'Error en los datos de la reserva');
         }
 
         try {
@@ -51,20 +53,18 @@ class BookingController extends Controller
                 ->whereIn('status', ['pending', 'confirmed', 'completed']) 
                 ->exists();
 
-            // Si existe, detenemos todo y devolvemos error 422 (Unprocessable Entity)
+            // Si existe, lanzamos excepción personalizada
             if ($exists) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lo sentimos, este horario acaba de ser ocupado por otro cliente.',
-                    'errors' => [
-                        'booking_time' => ['Este horario ya no está disponible.']
-                    ]
-                ], 422);
+                throw new BookingConflictException('Lo sentimos, este horario acaba de ser ocupado por otro cliente.');
             }
             // =================================================================
 
             // Obtener el profile y su account_id
-            $profile = Profile::findOrFail($request->profile_id);
+            $profile = Profile::find($request->profile_id);
+
+            if (!$profile) {
+                throw new ProfileNotFoundException('El perfil solicitado no existe o fue eliminado.');
+            }
 
             $booking = Booking::create([
                 'profile_id' => $request->profile_id,
@@ -109,7 +109,10 @@ class BookingController extends Controller
                 }
             } catch (\Exception $emailError) {
                 // Si falla encolar emails, lo registramos pero no detenemos la reserva
-                \Log::warning('Error al encolar emails de reserva: ' . $emailError->getMessage());
+                Log::warning('Error al encolar emails de reserva', [
+                    'error' => $emailError->getMessage(),
+                    'booking_id' => $booking->id ?? null,
+                ]);
             }
 
             // Formatear la respuesta para asegurar consistencia
@@ -127,10 +130,16 @@ class BookingController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            Log::error('Error crítico al crear reserva', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error al crear la reserva',
-                'error' => $e->getMessage()
+                'message' => 'Error inesperado al crear la reserva. Por favor, contacta con soporte.',
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }

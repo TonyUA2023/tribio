@@ -87,4 +87,20 @@ class Profile extends Model
     {
         return $this->hasMany(ProfileMedia::class, 'account_id', 'account_id');
     }
+
+    /**
+     * Define la relación: Un Perfil tiene muchas historias (stories).
+     */
+    public function stories(): HasMany
+    {
+        return $this->hasMany(Story::class);
+    }
+
+    /**
+     * Obtener stories activas del perfil
+     */
+    public function activeStories(): HasMany
+    {
+        return $this->stories()->active();
+    }
 }

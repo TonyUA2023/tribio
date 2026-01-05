@@ -137,6 +137,21 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
         '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'
     ];
 
+    // Función para verificar si una hora ya pasó (solo para el día actual)
+    const isTimePast = (time: string): boolean => {
+        if (!selectedDate) return false;
+
+        const today = new Date().toISOString().split('T')[0];
+        if (selectedDate !== today) return false; // Solo bloquear para hoy
+
+        const now = new Date();
+        const [hours, minutes] = time.split(':').map(Number);
+        const timeDate = new Date();
+        timeDate.setHours(hours, minutes, 0, 0);
+
+        return timeDate <= now; // Bloquear si la hora ya pasó
+    };
+
     if (showConfirmation) {
         return (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
@@ -325,7 +340,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className={`w-full flex items-center justify-center gap-3 py-4 md:py-5 rounded-full font-bold text-base
+                className={`booking-widget-trigger w-full flex items-center justify-center gap-3 py-4 md:py-5 rounded-full font-bold text-base
                     shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] ${className}`}
                 style={{
                     background: `linear-gradient(135deg, ${accentColor} 0%, #d97706 100%)`,
@@ -485,32 +500,31 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                                 <span className="ml-3 text-gray-400">Cargando horarios...</span>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                                 {timeSlots.map((time) => {
                                     const isOccupied = occupiedSlots.includes(time);
+                                    const isPast = isTimePast(time);
+                                    const isBlocked = isOccupied || isPast;
                                     const isSelected = selectedTime === time;
 
                                     return (
                                         <button
                                             key={time}
-                                            onClick={() => !isOccupied && setSelectedTime(time)}
-                                            disabled={isOccupied}
-                                            className={`py-2.5 px-3 rounded-lg text-sm font-semibold transition-all
-                                                ${isOccupied
-                                                    ? 'bg-red-900/30 text-red-400 cursor-not-allowed opacity-50'
+                                            onClick={() => !isBlocked && setSelectedTime(time)}
+                                            disabled={isBlocked}
+                                            className={`py-3 px-2 rounded-xl text-sm font-semibold transition-all
+                                                ${isBlocked
+                                                    ? 'bg-gray-700/40 text-gray-500 cursor-not-allowed'
                                                     : isSelected
-                                                        ? 'text-white ring-2'
-                                                        : 'bg-gray-800 text-gray-300 hover:bg-gray-750'
+                                                        ? 'text-white shadow-lg'
+                                                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700 active:scale-95'
                                                 }`}
-                                            style={isSelected && !isOccupied ? {
+                                            style={isSelected && !isBlocked ? {
                                                 backgroundColor: accentColor,
-                                                borderColor: accentColor
+                                                boxShadow: `0 4px 15px ${accentColor}40`
                                             } : {}}
                                         >
                                             {time}
-                                            {isOccupied && (
-                                                <div className="text-[10px] mt-0.5">Ocupado</div>
-                                            )}
                                         </button>
                                     );
                                 })}

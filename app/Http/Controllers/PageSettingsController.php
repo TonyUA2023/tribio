@@ -198,21 +198,24 @@ class PageSettingsController extends Controller
     public function reorderGallery(Request $request)
     {
         $request->validate([
-            'media' => 'required|array',
-            'media.*.id' => 'required|exists:profile_media,id',
-            'media.*.order' => 'required|integer',
+            'order' => 'required|array',
+            'order.*' => 'required|integer|exists:profile_media,id',
         ]);
 
         $user = $request->user();
         $account = $user->account()->first();
 
-        foreach ($request->media as $item) {
-            ProfileMedia::where('id', $item['id'])
+        // Actualizar el orden basado en el array de IDs
+        foreach ($request->order as $index => $mediaId) {
+            ProfileMedia::where('id', $mediaId)
                 ->where('account_id', $account->id)
-                ->update(['order' => $item['order']]);
+                ->update(['order' => $index]);
         }
 
-        return back()->with('success', 'Orden actualizado correctamente');
+        return response()->json([
+            'success' => true,
+            'message' => 'Orden actualizado correctamente',
+        ]);
     }
 
     private function processImage($file, $account, $type)

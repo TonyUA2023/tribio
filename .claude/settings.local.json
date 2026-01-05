@@ -19,7 +19,17 @@
       "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\test_email.php\")",
       "Bash(del \"test_pending_email.php\")",
       "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\test_pending_email.php\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(if [ ! -d \"public/uploaded_files\" ])",
+      "Bash(then mklink /D \"public\\\\uploaded_files\" \"storage\\\\app\\\\public\")",
+      "Bash(else echo \"Ya existe uploaded_files\")",
+      "Bash(fi)",
+      "Bash(cmd /c \"if not exist public\\\\uploaded_files mklink /D public\\\\uploaded_files storage\\\\app\\\\public\")",
+      "Bash(if exist \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\public\\\\hot\" del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\public\\\\hot\")",
+      "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\public\\\\hot\")",
+      "Bash(tasklist:*)"
     ]
   }
 }
