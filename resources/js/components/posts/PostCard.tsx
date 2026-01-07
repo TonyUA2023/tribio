@@ -78,7 +78,7 @@ const PostCard: React.FC<PostCardProps> = ({
     if (mediaPath.startsWith('http')) {
       return mediaPath;
     }
-    return `/storage/${mediaPath}`;
+    return `/uploaded_files/${mediaPath}`;
   };
 
   const isVideo = post.type === 'video' || post.media[currentMediaIndex]?.includes('.mp4');

@@ -136,4 +136,10 @@ class Account extends Model
             ->withPivot('customizations')
             ->withTimestamps();
     }
+    
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
 }

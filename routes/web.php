@@ -17,6 +17,8 @@ use App\Http\Controllers\BusinessSettingsController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\ReviewManagementController;
 use App\Http\Controllers\Api\StoryController;
+// 👇 NUEVO CONTROLADOR PARA PEDIDOS PÚBLICOS
+use App\Http\Controllers\PublicCheckoutController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,6 +37,7 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
+// --- RUTAS PROTEGIDAS (PANEL DE CLIENTE/DUEÑO) ---
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [ClientDashboardController::class, 'index'])
         ->name('dashboard');
@@ -101,7 +104,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/stories/{story}/analytics', [StoryController::class, 'analytics']);
     });
 
-    // Módulo de Productos
+    // Módulo de Productos (Gestión Admin)
     Route::prefix('products')->name('products.')->group(function () {
         Route::get('/', [\App\Http\Controllers\ProductController::class, 'index'])->name('index');
         Route::post('/', [\App\Http\Controllers\ProductController::class, 'store'])->name('store');
@@ -112,7 +115,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/update-order', [\App\Http\Controllers\ProductController::class, 'updateOrder'])->name('update-order');
     });
 
-    // Módulo de Pedidos
+    // Módulo de Pedidos (Gestión Admin)
     Route::prefix('orders')->name('orders.')->group(function () {
         Route::get('/', [\App\Http\Controllers\OrderController::class, 'index'])->name('index');
         Route::get('/{order}', [\App\Http\Controllers\OrderController::class, 'show'])->name('show');
@@ -127,7 +130,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 require __DIR__.'/settings.php';
 
 // --- RUTAS DEL SUPER ADMIN (JSTACK) ---
-// *** MOVIMOS ESTO AQUÍ (ANTES DEL COMODÍN) ***
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])
@@ -169,8 +171,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 });
 
 
-// --- RUTAS PÚBLICAS DE PERFILES (COMODÍN) ---
-// *** ESTAS RUTAS AHORA VAN AL FINAL ***
+// =========================================================================
+// RUTAS PÚBLICAS Y DE PERFILES (COMODÍN - ESTAS VAN AL FINAL)
+// =========================================================================
+
+// 🔥 NUEVO: Ruta pública para guardar pedidos (Checkout Web)
+// Debe ir ANTES de los comodines genéricos /{account_slug}
+Route::post('/{account_slug}/checkout', [PublicCheckoutController::class, 'store'])
+    ->name('public.checkout');
 
 // Ruta para feed de posts estilo TikTok
 Route::get('/{account_slug}/posts', function ($accountSlug) {
@@ -209,4 +217,3 @@ Route::get('/{account_slug}', [ProfileDisplayController::class, 'showDefault'])
 // Ruta para mostrar perfil específico
 Route::get('/{account_slug}/{profile_slug}', [ProfileDisplayController::class, 'show'])
     ->name('profile.show');
-

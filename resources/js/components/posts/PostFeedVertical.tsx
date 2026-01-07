@@ -139,7 +139,7 @@ const PostFeedVertical: React.FC<PostFeedVerticalProps> = ({ accountSlug, initia
     if (mediaPath.startsWith('http')) {
       return mediaPath;
     }
-    return `/storage/${mediaPath}`;
+    return `/uploaded_files/${mediaPath}`;
   };
 
   if (posts.length === 0 && !isLoading) {

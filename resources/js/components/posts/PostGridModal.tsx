@@ -196,7 +196,7 @@ const PostGridModal: React.FC<PostGridModalProps> = ({
     if (mediaPath.startsWith('http')) {
       return mediaPath;
     }
-    return `/storage/${mediaPath}`;
+    return `/uploaded_files/${mediaPath}`;
   };
 
   const getThumbnail = (post: Post): string => {

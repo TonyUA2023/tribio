@@ -6,6 +6,8 @@ use App\Models\Account;
 use App\Models\Profile;
 use App\Models\ProfileMedia;
 use App\Models\Template;
+// Asegúrate de importar el modelo Product
+use App\Models\Product; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
@@ -72,7 +74,7 @@ class ProfileDisplayController extends Controller
         return $profile;
     }
 
-protected function renderProfile(Account $account, Profile $profile)
+    protected function renderProfile(Account $account, Profile $profile)
     {
         // 1. Obtener Media (Lógica intacta)
         $galleryByProfile = ProfileMedia::query()
@@ -128,34 +130,56 @@ protected function renderProfile(Account $account, Profile $profile)
         $activeTemplate = null;
         $templateConfig = [];
 
-        // --- NUEVA LÓGICA CORREGIDA: Determinar el tipo de CTA (Botón de Acción) ---
+        // --- LÓGICA CORREGIDA: Determinar el tipo de CTA (Botón de Acción) ---
         
         $categorySlug = 'general';
         
-        // CORRECCIÓN: Verificamos el ID manualmente para evitar el error de relación "undefined relationship"
         if (!empty($account->business_category_id)) {
-            // Usamos el modelo directamente en lugar de $account->business_category
             $category = \App\Models\BusinessCategory::find($account->business_category_id);
             if ($category) {
                 $categorySlug = $category->slug;
             }
         }
 
-        $ctaMode = 'none'; // Por defecto ninguno
+        $ctaMode = 'none';
 
-        // Lógica de decisión basada en la categoría
         if (in_array($categorySlug, ['barber', 'beauty-salon', 'spa', 'medical', 'dental'])) {
-            $ctaMode = 'booking'; // Botón de Agendar
-        } elseif (in_array($categorySlug, ['restaurant', 'food-beverage', 'retail'])) {
-            $ctaMode = 'ordering'; // Botón de Pedir / Ver Menú
+            $ctaMode = 'booking';
+        } elseif (in_array($categorySlug, ['restaurant', 'food-beverage', 'retail', 'store'])) {
+            $ctaMode = 'ordering';
         } elseif (in_array($categorySlug, ['personal', 'influencer-blog', 'professional-services'])) {
-            $ctaMode = 'contact'; // Botón de Contacto / VCard
+            $ctaMode = 'contact';
         }
+
+        // Variable para almacenar productos si la plantilla lo requiere
+        $products = [];
 
         if (!empty($account->active_template_id)) {
             $activeTemplate = Template::query()->find($account->active_template_id);
 
             if ($activeTemplate) {
+                
+                // 🔥 LOGICA NUEVA: Cargar productos si la plantilla es de showcase 🔥
+                if ($activeTemplate->slug === 'product-showcase') {
+                    $products = Product::where('account_id', $account->id)
+                        ->where('available', true) // Solo disponibles
+                        ->orderBy('sort_order', 'asc') // Ordenar por preferencia
+                        ->orderBy('created_at', 'desc')
+                        ->get()
+                        ->map(function ($product) {
+                            return [
+                                'id' => $product->id,
+                                'name' => $product->name,
+                                'description' => $product->description,
+                                'price' => (float)$product->price,
+                                'image' => $product->image,
+                                'category' => $product->category ?? 'General',
+                                'available' => (bool)$product->available,
+                                'featured' => (bool)$product->featured,
+                            ];
+                        });
+                }
+
                 // Configuración por defecto de la plantilla
                 $baseConfig = is_array($activeTemplate->config)
                     ? $activeTemplate->config
@@ -199,8 +223,10 @@ protected function renderProfile(Account $account, Profile $profile)
                     'profileId' => $profile->id,
                     'accountSlug' => $account->slug,
                     
-                    // PASAMOS EL MODO CTA CORRECTO AL FRONTEND
-                    'ctaMode' => $ctaMode, 
+                    'ctaMode' => $ctaMode,
+                    
+                    // INYECTAMOS LOS PRODUCTOS AQUÍ
+                    'products' => $products,
                     
                 ], $customizations ?? []);
             }
@@ -307,7 +333,6 @@ protected function renderProfile(Account $account, Profile $profile)
 
     protected function resolveInertiaComponent(Profile $profile, $activeTemplate = null): string
     {
-        // 1. Si el perfil tiene una vista forzada específica
         if (isset($profile->custom_view_path) && $profile->custom_view_path) {
             return $profile->custom_view_path;
         }
@@ -318,17 +343,12 @@ protected function renderProfile(Account $account, Profile $profile)
                 'classic-barber'  => 'Templates/ClassicBarberTemplate',
                 'modern-minimal'  => 'Templates/ModernMinimalTemplate',
                 'personal-glass' => 'Templates/PersonalProfile3D',
-                
-                // --- AQUÍ ESTABA EL ERROR ---
-                // Antes decía: default => 'Custom/AntonyBarber'
-                // Ahora forzamos que si el slug no coincide, use tu diseño nuevo:
+                // 👇 NUEVA RUTA PARA LA PLANTILLA DE PRODUCTOS
+                'product-showcase' => 'Templates/ProductShowcaseTemplate',
                 default => 'Templates/ModernMinimalTemplate', 
             };
         }
 
-        // --- Y AQUÍ TAMBIÉN ESTABA EL ERROR ---
-        // Antes decía: return 'Custom/AntonyBarber';
-        // Si no detecta template, forzamos tu diseño nuevo:
         return 'Templates/ModernMinimalTemplate';
     }
 }

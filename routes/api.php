@@ -2,8 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
-
-// Controladores existentes
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\CronController;
@@ -18,9 +16,9 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\PostController; 
 use App\Http\Controllers\Api\PostsController; 
 use App\Http\Controllers\Api\TemplateController;
-
-// NUEVO: Controlador de Pedidos (Asegúrate de que el namespace coincida con la ubicación de tu archivo)
-use App\Http\Controllers\OrderController; 
+// Nuevos controladores para la lógica de Cafetería/Pedidos
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\OrderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -77,22 +75,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/account/stories', [StoriesController::class, 'store']);
     Route::delete('/account/stories/{id}', [StoriesController::class, 'destroy']);
 
-    // Reservas (Para Barberías/Spas)
+    // Reservas (Gestión)
     Route::get('/account/bookings', [BookingsController::class, 'index']);
     Route::get('/account/bookings/stats', [BookingsController::class, 'stats']);
     Route::put('/account/bookings/{id}/status', [BookingsController::class, 'updateStatus']);
     Route::put('/account/bookings/{id}', [BookingsController::class, 'update']);
 
-    // ----------------------------------------------------------------------
-    // NUEVO: GESTIÓN DE PEDIDOS (Para Restaurantes/Tiendas)
-    // ----------------------------------------------------------------------
-    Route::get('/account/orders', [OrderController::class, 'index']);         // Listar pedidos
-    Route::get('/account/orders/{order}', [OrderController::class, 'show']);  // Ver detalle
-    Route::put('/account/orders/{order}/status', [OrderController::class, 'updateStatus']); // Cambiar estado
-    Route::put('/account/orders/{order}/notes', [OrderController::class, 'updateNotes']);   // Notas internas
-    Route::delete('/account/orders/{order}', [OrderController::class, 'destroy']);          // Eliminar
-
-    // Reseñas
+    // Reseñas (Gestión)
     Route::get('/account/reviews', [ReviewsController::class, 'index']);
     Route::put('/account/reviews/{id}/featured', [ReviewsController::class, 'toggleFeatured']);
     Route::delete('/account/reviews/{id}', [ReviewsController::class, 'destroy']);
@@ -100,8 +89,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Analytics
     Route::get('/account/analytics/overview', [AnalyticsController::class, 'overview']);
     Route::get('/account/analytics/visits', [AnalyticsController::class, 'visits']);
-    // NUEVO: Analytics específico para Influencers
-    Route::get('/account/analytics/engagement', [AnalyticsController::class, 'engagement']); 
 
     // Posts (Gestión)
     Route::get('/account/posts', [PostsController::class, 'index']);      
@@ -127,6 +114,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/templates/{id}', [TemplateController::class, 'update']);
     Route::delete('/templates/{id}', [TemplateController::class, 'destroy']);
     Route::get('/templates/preview/{slug}', [TemplateController::class, 'preview']);
+
+    // =========================================================
+    // NUEVAS RUTAS: GESTIÓN DE PRODUCTOS Y PEDIDOS (CAFETERÍA)
+    // =========================================================
+
+    // Productos (Carta Digital)
+    Route::get('/accounts/{accountId}/products', [ProductController::class, 'index']);
+    Route::post('/accounts/{accountId}/products', [ProductController::class, 'store']);
+    // Usamos POST para update para manejar mejor multipart/form-data en algunos entornos
+    Route::post('/products/{id}', [ProductController::class, 'update']); 
+    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    Route::post('/products/{id}/toggle-availability', [ProductController::class, 'toggleAvailability']);
+
+    // Pedidos (Gestión de órdenes)
+    Route::get('/accounts/{accountId}/orders', [OrderController::class, 'index']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
+    Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);
+
 });
 
 
