@@ -7,6 +7,7 @@ use App\Http\Controllers\ProfileDisplayController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\AccountCreateController;
+use App\Http\Controllers\Admin\TemplateController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\AppointmentsController;
@@ -145,6 +146,26 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
         ->name('admin.accounts.update');
     Route::delete('/accounts/{account}', [AccountController::class, 'destroy'])
         ->name('admin.accounts.destroy');
+
+    // Gestión de Plantillas
+    Route::get('/templates', [TemplateController::class, 'index'])
+        ->name('admin.templates.index');
+    Route::get('/templates/create', [TemplateController::class, 'create'])
+        ->name('admin.templates.create');
+    Route::post('/templates', [TemplateController::class, 'store'])
+        ->name('admin.templates.store');
+    Route::get('/templates/{template}/edit', [TemplateController::class, 'edit'])
+        ->name('admin.templates.edit');
+    Route::put('/templates/{template}', [TemplateController::class, 'update'])
+        ->name('admin.templates.update');
+    Route::delete('/templates/{template}', [TemplateController::class, 'destroy'])
+        ->name('admin.templates.destroy');
+    Route::post('/templates/generate-slug', [TemplateController::class, 'generateSlug'])
+        ->name('admin.templates.generate-slug');
+    Route::post('/templates/{template}/upload-preview', [TemplateController::class, 'uploadPreview'])
+        ->name('admin.templates.upload-preview');
+    Route::delete('/templates/{template}/remove-preview', [TemplateController::class, 'removePreview'])
+        ->name('admin.templates.remove-preview');
 });
 
 

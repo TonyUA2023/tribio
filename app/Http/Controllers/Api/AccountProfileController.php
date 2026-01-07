@@ -90,4 +90,56 @@ class AccountProfileController extends Controller
             'message' => 'Subida exitosa'
         ]);
     }
+    /**
+     * Actualizar perfil (Incluyendo Redes Sociales)
+     * ESTE ES EL MÉTODO QUE FALTA
+     */
+    public function update(Request $request)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $account = \App\Models\Account::where('user_id', $user->id)->first();
+
+        if (!$account) {
+            return response()->json(['success' => false, 'message' => 'Cuenta no encontrada'], 404);
+        }
+
+        // 1. Validar los datos entrantes
+        $validator = Validator::make($request->all(), [
+            'business_name' => 'sometimes|string|max:255',
+            'category'      => 'sometimes|string|max:100',
+            'description'   => 'nullable|string',
+            'phone'         => 'nullable|string|max:50',
+            'address'       => 'nullable|string|max:255',
+            'social_links'  => 'nullable|array', // Validamos que llegue como array
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        // 2. Actualizar campos básicos
+        // Usamos fill para actualizar solo lo que llega, excepto social_links
+        $account->fill($request->except(['social_links', 'logo', 'cover']));
+
+        // 3. Actualizar Redes Sociales
+        // La App envía: { social_links: { whatsapp: "...", instagram: "..." } }
+        if ($request->has('social_links')) {
+            $social = $request->input('social_links');
+            
+            // Asignamos cada red social a su columna en la BD
+            if (isset($social['whatsapp']))  $account->whatsapp = $social['whatsapp'];
+            if (isset($social['instagram'])) $account->instagram = $social['instagram'];
+            if (isset($social['tiktok']))    $account->tiktok = $social['tiktok'];
+            if (isset($social['facebook']))  $account->facebook = $social['facebook'];
+        }
+
+        // 4. Guardar cambios en la BD
+        $account->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Perfil actualizado correctamente',
+            'data' => $account
+        ]);
+    }
 }

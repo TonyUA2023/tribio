@@ -5,20 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Models\Profile;
 use App\Models\ProfileMedia;
+use App\Models\Template;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class ProfileDisplayController extends Controller
 {
-    /**
-     * Mostrar cuenta con el perfil por defecto (sin profile_slug).
-     * Ruta: /{account_slug}
-     */
     public function showDefault(string $account_slug)
     {
         $account = $this->findAccountBySlug($account_slug);
-
-        // Intento: perfil marcado como "default" o el primero
         $profile = $this->resolveDefaultProfile($account);
 
         if (!$profile) {
@@ -28,15 +25,10 @@ class ProfileDisplayController extends Controller
         return $this->renderProfile($account, $profile);
     }
 
-    /**
-     * Mostrar perfil específico.
-     * Ruta: /{account_slug}/{profile_slug}
-     */
     public function show(string $account_slug, string $profile_slug)
     {
         $account = $this->findAccountBySlug($account_slug);
 
-        // Busca perfil por slug dentro del account
         $profile = Profile::query()
             ->where('account_id', $account->id)
             ->where('slug', $profile_slug)
@@ -55,8 +47,7 @@ class ProfileDisplayController extends Controller
 
     protected function findAccountBySlug(string $account_slug): Account
     {
-        // Ajusta el campo si tu cuenta usa otro nombre (ej: "slug")
-        $account = Account::query()
+        $account = Account::with('templates')
             ->where('slug', $account_slug)
             ->first();
 
@@ -69,8 +60,6 @@ class ProfileDisplayController extends Controller
 
     protected function resolveDefaultProfile(Account $account): ?Profile
     {
-        // Si tienes un flag como is_default, úsalo.
-        // Si no, toma el primero.
         $profile = Profile::query()
             ->where('account_id', $account->id)
             ->when(
@@ -83,26 +72,14 @@ class ProfileDisplayController extends Controller
         return $profile;
     }
 
-    /**
-     * Renderiza la página Inertia del perfil y adjunta la media.
-     */
-    protected function renderProfile(Account $account, Profile $profile)
+protected function renderProfile(Account $account, Profile $profile)
     {
-        /**
-         * 🔥 IMPORTANTÍSIMO:
-         * Tu BD actual muestra profile_id = NULL en profile_media.
-         * Por eso:
-         *  - Primero intentamos por profile_id (si existe)
-         *  - Si no hay, caemos a account_id (tu caso actual)
-         */
-
-        // 1) Media por profile_id (ideal si luego corriges tu BD)
+        // 1. Obtener Media (Lógica intacta)
         $galleryByProfile = ProfileMedia::query()
             ->where('profile_id', $profile->id)
             ->gallery()
             ->get();
 
-        // 2) Si no hay nada, usar por account_id (tu caso actual)
         $gallery = $galleryByProfile->isNotEmpty()
             ? $galleryByProfile
             : ProfileMedia::query()
@@ -110,7 +87,6 @@ class ProfileDisplayController extends Controller
                 ->gallery()
                 ->get();
 
-        // Loading screen
         $loadingByProfile = ProfileMedia::query()
             ->where('profile_id', $profile->id)
             ->loadingScreen()
@@ -122,11 +98,6 @@ class ProfileDisplayController extends Controller
                 ->loadingScreen()
                 ->first();
 
-        /**
-         * Si también guardas cover/logo en profile_media (por type),
-         * puedes agregarlos aquí (opcional).
-         * Ajusta el "type" si en tu sistema se llama distinto.
-         */
         $logo = ProfileMedia::query()
             ->where('profile_id', $profile->id)
             ->where('type', 'profile_logo')
@@ -145,56 +116,122 @@ class ProfileDisplayController extends Controller
                 ->where('type', 'cover_photo')
                 ->first();
 
-        /**
-         * ✅ Enviamos a Inertia:
-         * - profile original
-         * - profile.gallery: media con url (appends)
-         * - profile.loading_screen, profile.logo, profile.cover
-         */
+        // 2. Payload del perfil base
         $payloadProfile = array_merge($profile->toArray(), [
-            'gallery' => $gallery, // ✅ ahora React debe leer profile.gallery
+            'gallery' => $gallery,
             'loading_screen' => $loadingScreen,
             'logo' => $logo,
             'cover' => $cover,
         ]);
 
-        // Decide qué componente Inertia renderizar.
-        // Si usas plantillas por perfil, aquí puedes mapear.
-        $component = $this->resolveInertiaComponent($profile);
+        // 3. Preparar configuración de la plantilla
+        $activeTemplate = null;
+        $templateConfig = [];
 
-        // ✅ SEO Metadata dinámico para cada perfil
+        // --- NUEVA LÓGICA CORREGIDA: Determinar el tipo de CTA (Botón de Acción) ---
+        
+        $categorySlug = 'general';
+        
+        // CORRECCIÓN: Verificamos el ID manualmente para evitar el error de relación "undefined relationship"
+        if (!empty($account->business_category_id)) {
+            // Usamos el modelo directamente en lugar de $account->business_category
+            $category = \App\Models\BusinessCategory::find($account->business_category_id);
+            if ($category) {
+                $categorySlug = $category->slug;
+            }
+        }
+
+        $ctaMode = 'none'; // Por defecto ninguno
+
+        // Lógica de decisión basada en la categoría
+        if (in_array($categorySlug, ['barber', 'beauty-salon', 'spa', 'medical', 'dental'])) {
+            $ctaMode = 'booking'; // Botón de Agendar
+        } elseif (in_array($categorySlug, ['restaurant', 'food-beverage', 'retail'])) {
+            $ctaMode = 'ordering'; // Botón de Pedir / Ver Menú
+        } elseif (in_array($categorySlug, ['personal', 'influencer-blog', 'professional-services'])) {
+            $ctaMode = 'contact'; // Botón de Contacto / VCard
+        }
+
+        if (!empty($account->active_template_id)) {
+            $activeTemplate = Template::query()->find($account->active_template_id);
+
+            if ($activeTemplate) {
+                // Configuración por defecto de la plantilla
+                $baseConfig = is_array($activeTemplate->config)
+                    ? $activeTemplate->config
+                    : (json_decode($activeTemplate->config ?? '[]', true) ?? []);
+
+                // Personalizaciones guardadas en la tabla pivote
+                $pivotRow = $account->templates()
+                    ->where('templates.id', $activeTemplate->id)
+                    ->first();
+
+                $customizations = $pivotRow
+                    ? (json_decode($pivotRow->pivot->customizations ?? '{}', true) ?? [])
+                    : [];
+
+                $profileData = $profile->data ?? [];
+
+                // ============================================================
+                // 🔥 CONFIGURACIÓN FINAL DEL TEMPLATE 🔥
+                // ============================================================
+                $templateConfig = array_merge($baseConfig ?? [], [
+                    'businessName' => $customizations['businessName'] ?? $profile->name ?? $account->name,
+                    'businessTitle' => $customizations['businessTitle'] ?? $profile->title ?? $account->name,
+                    'businessBio' => $profileData['bio'] ?? $account->description ?? '', 
+                    'services' => !empty($profileData['services']) ? $profileData['services'] : ($baseConfig['defaultServices'] ?? []),
+                    'schedule' => !empty($profileData['hours']) ? $profileData['hours'] : ($baseConfig['defaultSchedule'] ?? ''),
+                    
+                    'socialLinks' => [
+                        'whatsapp'  => $account->whatsapp,
+                        'instagram' => $account->instagram,
+                        'facebook'  => $account->facebook,
+                        'tiktok'    => $account->tiktok,
+                    ],
+
+                    'gallery' => $gallery->map(fn($media) => [
+                        'url' => $media->url,
+                        'type' => $media->file_type ?? 'image',
+                    ])->toArray(),
+                    'loadingImage' => $loadingScreen?->url,
+                    'coverImage' => $cover?->url,
+                    'logoImage' => $logo?->url,
+                    'profileId' => $profile->id,
+                    'accountSlug' => $account->slug,
+                    
+                    // PASAMOS EL MODO CTA CORRECTO AL FRONTEND
+                    'ctaMode' => $ctaMode, 
+                    
+                ], $customizations ?? []);
+            }
+        }
+
+        // 4. Resolver Componente y SEO
+        $component = $this->resolveInertiaComponent($profile, $activeTemplate);
         $seoData = $this->buildSeoMetadata($account, $profile, $cover, $logo);
 
         return Inertia::render($component, [
             'account' => $account,
             'profile' => $payloadProfile,
             'seo' => $seoData,
+            'config' => $templateConfig,
+            'isPreview' => false,
+            'activeTemplate' => $activeTemplate,
         ]);
     }
 
-    /**
-     * Construye metadata SEO dinámico - SIMPLE Y DIRECTO
-     * Todo viene de la base de datos
-     */
+
     protected function buildSeoMetadata(Account $account, Profile $profile, $cover, $logo)
     {
         $data = $profile->data ?? [];
-
-        // Nombre del negocio
         $name = $profile->name ?? $account->name;
 
-        // Descripción (bio o título)
         $description = !empty($data['bio'])
             ? substr($data['bio'], 0, 160)
             : ($profile->title ?? 'Reserva tu cita en TRIBIO');
 
-        // Imagen para compartir (cover o logo desde BD)
         $image = $cover?->url ?? $logo?->url ?? null;
-
-        // URL de la página
         $url = url("/{$account->slug}");
-
-        // Keywords automáticos
         $keywords = $this->generateKeywords($profile, $account, $data['address'] ?? null);
 
         return [
@@ -205,7 +242,6 @@ class ProfileDisplayController extends Controller
             'url' => $url,
             'site_name' => 'TRIBIO',
             'type' => 'business.business',
-            // Datos estructurados
             'structured_data' => $this->generateStructuredData(
                 $profile,
                 $account,
@@ -217,72 +253,41 @@ class ProfileDisplayController extends Controller
         ];
     }
 
-    /**
-     * Genera keywords dinámicos basados en el perfil y ubicación
-     */
     protected function generateKeywords(Profile $profile, Account $account, ?string $address): string
     {
         $keywords = [];
-
-        // Nombre del negocio
         $keywords[] = $profile->name ?? $account->name;
 
-        // Tipo de negocio (extraído del título)
         $title = strtolower($profile->title ?? '');
         if (str_contains($title, 'barber') || str_contains($title, 'barbería')) {
             $keywords[] = 'barbería';
             $keywords[] = 'barber shop';
             $keywords[] = 'cortes de cabello';
-            $keywords[] = 'peluquería para hombres';
         }
 
-        // Servicios (si existen en data)
         $services = $profile->data['services'] ?? [];
         if (is_array($services)) {
             $keywords = array_merge($keywords, array_slice($services, 0, 5));
         }
 
-        // Ubicación (extraer ciudad de la dirección)
         if ($address) {
-            // Intentar extraer ciudad (simplificado)
-            if (str_contains(strtolower($address), 'huancayo')) {
-                $keywords[] = 'barbería en Huancayo';
-                $keywords[] = 'barber Huancayo';
-                $keywords[] = 'cortes Huancayo';
-            }
-            if (str_contains(strtolower($address), 'lima')) {
-                $keywords[] = 'barbería en Lima';
-                $keywords[] = 'barber Lima';
-            }
+            if (str_contains(strtolower($address), 'huancayo')) $keywords[] = 'Huancayo';
+            if (str_contains(strtolower($address), 'lima')) $keywords[] = 'Lima';
         }
 
-        // TRIBIO como plataforma
         $keywords[] = 'TRIBIO';
-        $keywords[] = 'reserva online';
-        $keywords[] = 'citas online';
-
         return implode(', ', array_unique($keywords));
     }
 
-    /**
-     * Genera datos estructurados JSON-LD para SEO local
-     * Ayuda a aparecer en Google Maps y búsquedas locales
-     */
     protected function generateStructuredData(Profile $profile, Account $account, ?string $address, ?string $phone, ?string $hours, ?string $image): array
     {
         $businessName = $profile->name ?? $account->name ?? 'TRIBIO Business';
         $description = $profile->data['bio'] ?? '';
 
-        // Determinar el tipo de negocio según el título
         $businessType = 'LocalBusiness';
         $title = strtolower($profile->title ?? '');
-        if (str_contains($title, 'barber') || str_contains($title, 'barbería')) {
-            $businessType = 'BarberShop';
-        } elseif (str_contains($title, 'restaurant') || str_contains($title, 'café')) {
-            $businessType = 'Restaurant';
-        } elseif (str_contains($title, 'gym') || str_contains($title, 'fitness')) {
-            $businessType = 'HealthClub';
-        }
+        if (str_contains($title, 'barber')) $businessType = 'BarberShop';
+        elseif (str_contains($title, 'restaurant')) $businessType = 'Restaurant';
 
         $structuredData = [
             '@context' => 'https://schema.org',
@@ -292,50 +297,38 @@ class ProfileDisplayController extends Controller
             'url' => url("/{$account->slug}"),
         ];
 
-        if ($image) {
-            $structuredData['image'] = $image;
-        }
-
-        if ($address) {
-            $structuredData['address'] = [
-                '@type' => 'PostalAddress',
-                'streetAddress' => $address,
-            ];
-        }
-
-        if ($phone) {
-            $structuredData['telephone'] = $phone;
-        }
-
-        if ($hours) {
-            $structuredData['openingHours'] = $hours;
-        }
-
-        // Agregar calificación predeterminada (puedes hacerlo dinámico después)
-        $structuredData['aggregateRating'] = [
-            '@type' => 'AggregateRating',
-            'ratingValue' => '5.0',
-            'reviewCount' => '1',
-        ];
+        if ($image) $structuredData['image'] = $image;
+        if ($address) $structuredData['address'] = ['@type' => 'PostalAddress', 'streetAddress' => $address];
+        if ($phone) $structuredData['telephone'] = $phone;
+        if ($hours) $structuredData['openingHours'] = $hours;
 
         return $structuredData;
     }
 
-    /**
-     * Si tienes múltiples templates, resuélvelo aquí.
-     * Si no, deja fijo tu componente.
-     */
-    protected function resolveInertiaComponent(Profile $profile): string
+    protected function resolveInertiaComponent(Profile $profile, $activeTemplate = null): string
     {
-        // Si el perfil tiene custom_view_path definido, usarlo
+        // 1. Si el perfil tiene una vista forzada específica
         if (isset($profile->custom_view_path) && $profile->custom_view_path) {
             return $profile->custom_view_path;
         }
 
-        // Fallback: si tiene template_id, podrías mapear a componentes
-        // Aquí puedes agregar lógica según template_id si lo necesitas
+        if ($activeTemplate) {
+            return match ($activeTemplate->slug ?? null) {
+                'majestic-barber' => 'Templates/BarberTemplate',
+                'classic-barber'  => 'Templates/ClassicBarberTemplate',
+                'modern-minimal'  => 'Templates/ModernMinimalTemplate',
+                'personal-glass' => 'Templates/PersonalProfile3D',
+                
+                // --- AQUÍ ESTABA EL ERROR ---
+                // Antes decía: default => 'Custom/AntonyBarber'
+                // Ahora forzamos que si el slug no coincide, use tu diseño nuevo:
+                default => 'Templates/ModernMinimalTemplate', 
+            };
+        }
 
-        // Default
-        return 'Custom/AntonyBarber';
+        // --- Y AQUÍ TAMBIÉN ESTABA EL ERROR ---
+        // Antes decía: return 'Custom/AntonyBarber';
+        // Si no detecta template, forzamos tu diseño nuevo:
+        return 'Templates/ModernMinimalTemplate';
     }
 }

@@ -28,7 +28,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Obtener la cuenta del usuario con categoría y módulos
+        // 1. Obtener la cuenta
         $account = $user->account()->with(['businessCategory', 'activeModules'])->first();
 
         if (!$account) {
@@ -38,7 +38,28 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Crear token con expiración de 1 año
+        // =========================================================
+        // 🔥 LÓGICA DE MÓDULOS DINÁMICA 🔥
+        // =========================================================
+        
+        // A. Lógica Estándar (Base de Datos)
+        $account->category = $account->businessCategory->slug ?? 'personal';
+        $categoryModules = $account->businessCategory->default_modules ?? '[]';
+        
+        if (is_string($categoryModules)) {
+            $categoryModules = json_decode($categoryModules, true) ?? [];
+        }
+        $account->enabled_modules = $categoryModules;
+
+        // B. --- EXCEPCIÓN HARDCODED PARA TONY BARBER ---
+        // Si la cuenta es antigua y no tiene categoría en BD, forzamos los módulos aquí.
+        if ($user->email === 'tony_barber@tribio.info') {
+            $account->category = 'barber';
+            $account->enabled_modules = ['bookings', 'gallery', 'reviews'];
+        }
+        // =========================================================
+
+        // Crear token
         $token = $user->createToken('mobile-app', ['*'], now()->addYear())->plainTextToken;
 
         return response()->json([
@@ -50,10 +71,10 @@ class AuthController extends Controller
                     'email' => $user->email,
                     'role' => $user->role ?? 'owner',
                 ],
-                'account' => $account,
+                'account' => $account, 
                 'access_token' => $token,
                 'token_type' => 'Bearer',
-                'expires_in' => 31536000, // 1 año en segundos
+                'expires_in' => 31536000,
             ]
         ]);
     }
@@ -72,12 +93,28 @@ class AuthController extends Controller
     }
 
     /**
-     * Obtener información del usuario autenticado
+     * Obtener información del usuario autenticado (Persistencia)
      */
     public function me(Request $request)
     {
         $user = $request->user();
         $account = $user->account()->with(['businessCategory', 'activeModules'])->first();
+
+        if ($account) {
+            // A. Lógica Estándar
+            $account->category = $account->businessCategory->slug ?? 'personal';
+            $categoryModules = $account->businessCategory->default_modules ?? '[]';
+            if (is_string($categoryModules)) {
+                $categoryModules = json_decode($categoryModules, true) ?? [];
+            }
+            $account->enabled_modules = $categoryModules;
+
+            // B. --- EXCEPCIÓN HARDCODED PARA TONY BARBER ---
+            if ($user->email === 'tony_barber@tribio.info') {
+                $account->category = 'barber';
+                $account->enabled_modules = ['bookings', 'gallery', 'reviews'];
+            }
+        }
 
         return response()->json([
             'success' => true,

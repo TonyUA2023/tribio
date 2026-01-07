@@ -50,6 +50,7 @@ class AccountController extends Controller
             'business_category_id' => 'nullable|exists:business_categories,id',
             'modules' => 'nullable|array',
             'modules.*' => 'string',
+            'template_id' => 'nullable|exists:templates,id',
 
             // Datos del usuario dueño
             'owner_name' => 'required|string|max:255',
@@ -124,6 +125,22 @@ class AccountController extends Controller
                         ]);
                     }
                 }
+            }
+
+            // 5. Asignar plantilla si fue seleccionada
+            if (!empty($validated['template_id'])) {
+                // Guardar en la tabla pivot
+                $account->templates()->attach($validated['template_id'], [
+                    'customizations' => json_encode([
+                        'businessName' => $validated['account_name'],
+                        'businessTitle' => $validated['account_name'],
+                    ])
+                ]);
+
+                // ✅ IMPORTANTE: Actualizar active_template_id para que se renderice
+                $account->update([
+                    'active_template_id' => $validated['template_id']
+                ]);
             }
 
             DB::commit();

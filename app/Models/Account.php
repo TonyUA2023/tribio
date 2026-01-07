@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Account extends Model
 {
@@ -18,11 +19,21 @@ class Account extends Model
         'user_id',
         'plan_id',
         'business_category_id',
+        'active_template_id',
         'name',
         'type',
         'slug',
         'payment_status',
         'next_billing_date',
+        'description',
+        'phone',
+        'address',
+        'logo_url',
+        'cover_url',
+        'whatsapp',
+        'instagram',
+        'tiktok',
+        'facebook'
     ];
 
     /**
@@ -111,5 +122,18 @@ class Account extends Model
     public function posts(): HasMany
     {
         return $this->hasMany(\App\Models\Post::class);
+    }
+
+
+    public function activeTemplate()
+    {
+        return $this->belongsTo(Template::class, 'active_template_id');
+    }
+
+    public function templates()
+    {
+        return $this->belongsToMany(Template::class, 'account_template')
+            ->withPivot('customizations')
+            ->withTimestamps();
     }
 }
