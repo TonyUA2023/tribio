@@ -15,13 +15,13 @@ import {
   FaPhoneAlt,
   FaUser,
   FaUtensils,
-  FaFire,
   FaChevronRight,
   FaStar,
-  FaClock
+  FaClock,
+  FaInfoCircle // Nuevo icono para el aviso de pago
 } from 'react-icons/fa';
 
-// --- COMPONENTES REUTILIZABLES (De tu proyecto) ---
+// --- COMPONENTES IMPORTADOS ---
 import { PremiumCarousel, CarouselImage } from '@/components/gallery/PremiumCarousel';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { ReviewsList } from '@/components/reviews/ReviewsList';
@@ -90,7 +90,7 @@ const money = (n: number) => `S/ ${n.toFixed(2)}`;
 // --- COMPONENTES INTERNOS ---
 
 /**
- * 1. Botón Social (Reutilizando estilo de BarberTemplate)
+ * 1. Botón Social
  */
 const PremiumSocialButton = ({
     icon,
@@ -142,7 +142,7 @@ const PremiumSocialButton = ({
   );
 
 /**
- * 2. Tarjeta de Producto (Optimizada para Grid)
+ * 2. Tarjeta de Producto
  */
 const ProductCard = ({ product, onAdd, primaryColor }: { product: Product, onAdd: (p: Product) => void, primaryColor: string }) => (
   <div className="group relative bg-[#151515] border border-white/5 rounded-2xl overflow-hidden flex flex-col h-full hover:border-white/20 transition-all duration-300 shadow-lg">
@@ -195,7 +195,7 @@ const ProductCard = ({ product, onAdd, primaryColor }: { product: Product, onAdd
 );
 
 /**
- * 3. Modal de Datos del Cliente (Paso final antes de WhatsApp)
+ * 3. Modal de Datos del Cliente (ACTUALIZADO: MENSAJE DE PAGO)
  */
 const CustomerModal = ({ 
   isOpen, 
@@ -205,7 +205,7 @@ const CustomerModal = ({
   isSubmitting,
   primaryColor 
 }: any) => {
-  const [data, setData] = useState({ name: '', phone: '', address: '' });
+  const [data, setData] = useState({ name: '', phone: '' });
 
   if (!isOpen) return null;
 
@@ -225,6 +225,16 @@ const CustomerModal = ({
           <div className="bg-white/5 p-4 rounded-xl border border-white/5 mb-4 flex justify-between items-center">
             <span className="text-gray-400 text-sm">Total a pagar:</span>
             <div className="text-2xl font-bold text-white" style={{ color: primaryColor }}>{money(total)}</div>
+          </div>
+
+          {/* 🔥 AVISO DE PAGO 🔥 */}
+          <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20 mb-4">
+            <p className="text-blue-200 text-xs flex items-start gap-2 leading-relaxed">
+               <FaInfoCircle className="mt-0.5 text-blue-400 shrink-0" />
+               <span>
+                  El pago se coordina por <b>WhatsApp</b> (Yape/Plin/Efectivo) una vez la empresa confirme tu pedido.
+               </span>
+            </p>
           </div>
 
           <div>
@@ -265,7 +275,7 @@ const CustomerModal = ({
               <span className="animate-pulse">Procesando...</span>
             ) : (
               <>
-                <span>Confirmar y Enviar</span>
+                <span>Enviar Pedido</span>
                 <FaWhatsapp className="text-xl" />
               </>
             )}
@@ -360,12 +370,16 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
     }).filter(item => item.quantity > 0));
   };
 
-  // --- CHECKOUT ---
+  // --- CHECKOUT (CORREGIDO CON CSRF Y MENSAJE DE PAGO) ---
   const handleConfirmOrder = async (customerData: { name: string, phone: string }) => {
     if (cart.length === 0) return;
     setIsSubmitting(true);
 
     try {
+      // 1. Obtener Token CSRF (Vital para Laravel)
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+      // 2. Enviar a Laravel (Ruta Pública)
       const payload = {
         customer_name: customerData.name,
         customer_phone: customerData.phone,
@@ -375,30 +389,46 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
         }))
       };
 
-      const response = await axios.post(`/${accountSlug}/checkout`, payload);
+      const response = await axios.post(`/${accountSlug}/checkout`, payload, {
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
+        }
+      });
+      
       const { order_number } = response.data;
 
-      // Mensaje WhatsApp
+      // 3. Mensaje WhatsApp (ACTUALIZADO: MENCIONA PAGO PENDIENTE)
       const itemsList = cart.map(item => 
         `▪️ ${item.quantity}x ${item.name}`
       ).join('\n');
 
       const message = 
         `Hola, soy *${customerData.name}* 👋\n` +
-        `Nuevo pedido *#${order_number}*:\n\n` +
+        `Acabo de realizar el pedido *#${order_number}* en la web:\n\n` +
         `${itemsList}\n\n` +
-        `*💰 Total: ${money(cartTotal)}*`;
+        `*💰 Total: ${money(cartTotal)}*\n\n` +
+        `Quedo atento a su confirmación para realizar el pago (Yape/Plin).`;
 
       const whatsappUrl = `https://wa.me/${socialLinks.whatsapp?.replace(/\D/g, '') || ''}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, '_blank');
-
+      
+      // 4. Limpiar y Redirigir
       setCart([]);
       setIsCheckoutOpen(false);
       setIsCartOpen(false);
+      window.open(whatsappUrl, '_blank');
 
-    } catch (error) {
-      console.error(error);
-      alert('Error al procesar el pedido.');
+    } catch (error: any) {
+      console.error("Error en checkout:", error);
+      let errorMsg = 'Error al procesar el pedido.';
+      
+      if (error.response?.status === 419) {
+          errorMsg = 'Tu sesión expiró. Por favor recarga la página.';
+      } else if (error.response?.data?.message) {
+          errorMsg = error.response.data.message;
+      }
+      
+      alert(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -436,7 +466,7 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
                     style={{ transform: `translateY(${y * 0.5}px) scale(1.1)` }} 
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-slate-800 to-black" />
+                <div className="w-full h-full bg-gradient-to-br from-gray-800 to-black" />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
             </div>

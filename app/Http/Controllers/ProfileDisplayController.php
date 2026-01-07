@@ -160,10 +160,10 @@ class ProfileDisplayController extends Controller
             if ($activeTemplate) {
                 
                 // 🔥 LOGICA NUEVA: Cargar productos si la plantilla es de showcase 🔥
-                if ($activeTemplate->slug === 'product-showcase') {
+                if (in_array($activeTemplate->slug, ['product-showcase', 'natural-cafe'])) {
                     $products = Product::where('account_id', $account->id)
-                        ->where('available', true) // Solo disponibles
-                        ->orderBy('sort_order', 'asc') // Ordenar por preferencia
+                        ->where('available', true)
+                        ->orderBy('sort_order', 'asc')
                         ->orderBy('created_at', 'desc')
                         ->get()
                         ->map(function ($product) {
@@ -345,6 +345,7 @@ class ProfileDisplayController extends Controller
                 'personal-glass' => 'Templates/PersonalProfile3D',
                 // 👇 NUEVA RUTA PARA LA PLANTILLA DE PRODUCTOS
                 'product-showcase' => 'Templates/ProductShowcaseTemplate',
+                'natural-cafe'     => 'Templates/NaturalCafeTemplate',
                 default => 'Templates/ModernMinimalTemplate', 
             };
         }
