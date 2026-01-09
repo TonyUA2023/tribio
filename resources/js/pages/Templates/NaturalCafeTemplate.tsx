@@ -20,6 +20,7 @@ import { StoryCircle } from '@/components/stories/StoryCircle';
 import { ScrollReveal } from '@/components/animated/ScrollReveal';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import PostGridModal from '@/components/posts/PostGridModal';
+import { ContentButton } from '@/components/content/ContentButton';
 
 // --- INTERFACES ---
 export interface NaturalCafeConfig {
@@ -64,6 +65,26 @@ const resolveMediaUrl = (raw?: string) => {
 };
 
 const money = (n: number) => `S/ ${Number(n).toFixed(2)}`;
+
+// Helper to format social media URLs
+const formatSocialUrl = (platform: string, rawUrl: string): string => {
+  if (!rawUrl) return '';
+
+  const url = rawUrl.trim();
+
+  // WhatsApp: Transform to wa.me format if it's just a phone number
+  if (platform === 'whatsapp') {
+    if (url.startsWith('http')) {
+      return url; // Already formatted
+    }
+    // Remove any + or spaces from phone number
+    const cleanNumber = url.replace(/[\s\+\-\(\)]/g, '');
+    return `https://wa.me/${cleanNumber}`;
+  }
+
+  // Other platforms: return as-is (already full URLs)
+  return url.startsWith('http') ? url : `https://${url}`;
+};
 
 // Configuración de Plataformas Sociales
 const SOCIAL_PLATFORMS = [
@@ -294,7 +315,7 @@ export const NaturalCafeTemplate: React.FC<TemplateProps> = ({ config, customiza
       return url && url.length > 0;
     }).map(platform => ({
       ...platform,
-      url: socialLinks[platform.key]!
+      url: formatSocialUrl(platform.key, socialLinks[platform.key]!)
     }));
   }, [socialLinks]);
 
@@ -555,7 +576,7 @@ export const NaturalCafeTemplate: React.FC<TemplateProps> = ({ config, customiza
                    </section>
                 )}
 
-                <section>
+                <section data-posts-section>
                    <h3 className="text-base font-bold text-white mb-3">Novedades</h3>
                    <div className="rounded-2xl overflow-hidden bg-black/20 border border-white/5">
                      <PostGridModal accountSlug={accountSlug} accentColor={accentColor} />
@@ -577,13 +598,20 @@ export const NaturalCafeTemplate: React.FC<TemplateProps> = ({ config, customiza
 
           <ElegantCartButton 
             count={cartCount} 
-            total={cartTotal} 
-            onClick={() => setIsCartOpen(true)} 
+            total={cartTotal}
+            onClick={() => setIsCartOpen(true)}
             color={accentColor}
           />
 
-          <CartDrawer 
-            isOpen={isCartOpen} 
+          {/* Botón de Contenido Multimedia */}
+          <ContentButton
+            accountSlug={accountSlug}
+            accentColor={accentColor}
+            position="left"
+          />
+
+          <CartDrawer
+            isOpen={isCartOpen}
             onClose={() => setIsCartOpen(false)} 
             cart={cart} 
             total={cartTotal} 

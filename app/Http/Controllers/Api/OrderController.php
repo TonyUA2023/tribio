@@ -5,19 +5,22 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Account;
+use App\Services\BrevoSmsService;
+use App\Services\WhatsAppService;
+use App\Services\WhatsAppMessages\OrderMessages;
+use App\Mail\GenericEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
     /**
      * Listar pedidos de una cuenta.
-     * GET /api/accounts/{accountId}/orders?status=pending
      */
     public function index(Request $request, $accountId)
     {
-        // 1. Validar que la cuenta pertenece al usuario
         $account = Account::where('id', $accountId)
             ->where('user_id', auth()->id())
             ->first();
@@ -26,18 +29,27 @@ class OrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Cuenta no encontrada o acceso denegado.'], 403);
         }
 
-        // 2. Query base
-        $query = Order::where('account_id', $accountId)
-            ->with(['items']); // Cargar items ligeros para la lista (opcional, si quieres mostrar "2 items" en la lista)
+        $query = Order::where('account_id', $accountId)->with(['items']); 
 
-        // 3. Filtrar por estado si se solicita (ej: ?status=pending)
+        // Filtrar por estado
         if ($request->has('status') && $request->status !== 'all') {
-            $query->where('status', $request->status);
+            if ($request->status === 'history') {
+                $query->whereIn('status', ['delivered', 'cancelled']);
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
-        // 4. Ordenar (más recientes primero)
-        $orders = $query->orderBy('created_at', 'desc')
-                        ->paginate(20); // Paginación para no saturar la App
+        // Búsqueda
+        if ($request->has('search')) {
+            $term = $request->search;
+            $query->where(function($q) use ($term) {
+                $q->where('customer_name', 'like', "%{$term}%")
+                  ->orWhere('order_number', 'like', "%{$term}%");
+            });
+        }
+
+        $orders = $query->orderBy('created_at', 'desc')->paginate(20);
 
         return response()->json([
             'success' => true,
@@ -47,14 +59,11 @@ class OrderController extends Controller
 
     /**
      * Ver detalle completo de un pedido.
-     * GET /api/orders/{id}
      */
     public function show($id)
     {
-        // Cargar pedido con items y la cuenta para validar permisos
         $order = Order::with(['items', 'account'])->findOrFail($id);
 
-        // Validar permisos
         if ($order->account->user_id !== auth()->id()) {
             return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
         }
@@ -66,127 +75,149 @@ class OrderController extends Controller
     }
 
     /**
-     * Actualizar el estado de un pedido.
-     * PUT /api/orders/{id}/status
+     * Actualizar el estado de un pedido (CON NOTIFICACIONES MULTICANAL).
      */
-    public function updateStatus(Request $request, $id)
+    public function updateStatus(Request $request, $id, BrevoSmsService $smsService, WhatsAppService $whatsappService)
     {
         $request->validate([
-            'status' => 'required|in:pending,confirmed,preparing,in_delivery,delivered,cancelled'
+            'status' => 'required|in:pending,preparing,ready,delivered,cancelled'
         ]);
 
         $order = Order::with('account')->findOrFail($id);
 
-        // Validar permisos
         if ($order->account->user_id !== auth()->id()) {
             return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
         }
 
-        $oldStatus = $order->status;
         $newStatus = $request->status;
-
-        // Actualizar estado
         $order->status = $newStatus;
         
-        // Registrar fechas importantes
-        if ($newStatus === 'confirmed' && !$order->confirmed_at) {
-            $order->confirmed_at = now();
-        }
         if ($newStatus === 'delivered' && !$order->delivered_at) {
             $order->delivered_at = now();
+        }
+        
+        if ($newStatus === 'preparing' && !$order->confirmed_at) {
+             $order->confirmed_at = now();
         }
 
         $order->save();
 
-        // --- Generar mensaje de WhatsApp sugerido ---
-        // Esto ayuda al dueño a notificar al cliente rápidamente
-        $whatsappMessage = $this->generateWhatsAppMessage($order, $newStatus);
+        // --- 🚀 LÓGICA DE NOTIFICACIÓN INTELIGENTE ---
+
+        try {
+            switch ($order->notification_channel) {
+                case 'sms':
+                    // SMS: Versión corta del mensaje
+                    $messageContent = $this->getNotificationMessage($order, $newStatus);
+                    if ($messageContent) {
+                        $smsService->sendSms($order->customer_phone, $messageContent);
+                    }
+                    break;
+
+                case 'whatsapp':
+                    // WhatsApp: Mensaje completo y formateado usando Meta API
+                    $message = match($newStatus) {
+                        'preparing' => OrderMessages::orderPreparing($order),
+                        'ready' => OrderMessages::orderReady($order),
+                        'delivered' => OrderMessages::orderDelivered($order),
+                        'cancelled' => OrderMessages::orderCancelled($order),
+                        default => null
+                    };
+
+                    if ($message) {
+                        $whatsappService->sendTextMessage($order->customer_phone, $message);
+                    }
+                    break;
+
+                case 'email':
+                default:
+                    // Email
+                    if ($order->customer_email) {
+                        $messageContent = $this->getNotificationMessage($order, $newStatus);
+                        if ($messageContent) {
+                            Mail::to($order->customer_email)->send(
+                                new GenericEmail(
+                                    "Actualización Pedido #{$order->order_number}",
+                                    $messageContent
+                                )
+                            );
+                        }
+                    }
+                    break;
+            }
+        } catch (\Exception $e) {
+            Log::error("Error enviando notificación de pedido {$id}: " . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,
             'message' => "Estado actualizado a " . ucfirst($newStatus),
-            'data' => $order,
-            'whatsapp_link' => $whatsappMessage // El frontend puede abrir esto directamente
+            'data' => $order
         ]);
     }
 
     /**
-     * Método privado para generar textos de WhatsApp
+     * Helper para textos de notificación
      */
-    private function generateWhatsAppMessage(Order $order, $status)
+    private function getNotificationMessage(Order $order, $status)
     {
-        if (!$order->customer_phone) return null;
+        $id = $order->order_number ?? $order->id;
+        $business = $order->account->name;
 
-        $phone = preg_replace('/[^0-9]/', '', $order->customer_phone); // Limpiar teléfono
-        $businessName = $order->account->name;
-        $orderId = $order->order_number ?? $order->id;
-        
-        $text = "";
-
-        switch ($status) {
-            case 'confirmed':
-                $text = "Hola {$order->customer_name}, tu pedido #{$orderId} en *{$businessName}* ha sido confirmado. Lo estamos preparando. 👨‍🍳";
-                break;
-            case 'in_delivery':
-                $text = "Hola {$order->customer_name}, ¡tu pedido #{$orderId} va en camino! 🛵";
-                break;
-            case 'delivered':
-                $text = "Hola {$order->customer_name}, tu pedido #{$orderId} ha sido entregado. ¡Gracias por tu compra! ⭐";
-                break;
-            case 'cancelled':
-                $text = "Hola {$order->customer_name}, lamentamos informarte que tu pedido #{$orderId} ha sido cancelado. Por favor contáctanos para más detalles.";
-                break;
-            default:
-                return null;
-        }
-
-        return "https://wa.me/{$phone}?text=" . urlencode($text);
+        return match ($status) {
+            'preparing' => "Hola {$order->customer_name}, tu pedido #{$id} en {$business} se está preparando/empaquetando 📦.",
+            'ready'     => "¡{$order->customer_name}! Tu pedido #{$id} está LISTO ✅. " . ($order->delivery_fee > 0 ? "Pronto saldrá a reparto." : "Puedes pasar a recogerlo."),
+            'delivered' => "Tu pedido #{$id} ha sido entregado. ¡Gracias por elegir {$business}! ⭐",
+            'cancelled' => "Tu pedido #{$id} en {$business} ha sido cancelado.",
+            default     => null
+        };
     }
 
     /**
-     * (Opcional) Crear un pedido manualmente desde el Admin
-     * Si necesitas que el dueño cree pedidos por teléfono
+     * Crear un pedido manualmente desde el Admin (App Móvil)
      */
-    public function store(Request $request, $accountId)
+    public function store(Request $request, $accountId, BrevoSmsService $smsService, WhatsAppService $whatsappService)
     {
-        // Validar permisos
         $account = Account::where('id', $accountId)->where('user_id', auth()->id())->firstOrFail();
 
-        // Validación simplificada
         $request->validate([
             'customer_name' => 'required|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
+            // Opcional: El dueño puede elegir el canal al crear el pedido manual
+            'notification_channel' => 'nullable|in:email,sms,whatsapp' 
         ]);
 
         DB::beginTransaction();
         try {
-            // Calcular total
             $total = 0;
-            $orderItems = [];
+            
+            // Si no se especifica canal, asumimos email por defecto
+            $channel = $request->notification_channel ?? 'email';
 
-            // Crear Orden Cabecera
             $order = Order::create([
                 'account_id' => $accountId,
                 'customer_name' => $request->customer_name,
                 'customer_phone' => $request->customer_phone,
                 'delivery_address' => $request->delivery_address ?? 'Local',
-                'status' => 'confirmed', // Asumimos confirmado si lo crea el dueño
+                'status' => 'preparing', // Manual = Confirmado automáticamente
                 'payment_method' => $request->payment_method ?? 'cash',
-                'order_number' => 'ORD-' . strtoupper(uniqid()),
-                'total' => 0, // Se actualiza luego
+                'order_number' => 'ORD-' . strtoupper(substr(uniqid(), -6)),
+                'total' => 0,
+                'confirmed_at' => now(),
+                'notification_channel' => $channel, // 👈 Guardamos
             ]);
 
             foreach ($request->items as $item) {
-                // Aquí deberías buscar el precio real del producto en DB para seguridad
-                // Por brevedad, asumimos lógica básica
                 $product = \App\Models\Product::find($item['product_id']);
+                if(!$product) continue; 
+
                 $subtotal = $product->price * $item['quantity'];
                 
                 $order->items()->create([
                     'product_id' => $product->id,
-                    'product_name' => $product->name, // Guardar nombre por si se borra el producto
+                    'product_name' => $product->name,
                     'product_price' => $product->price,
                     'quantity' => $item['quantity'],
                     'subtotal' => $subtotal,
@@ -196,7 +227,39 @@ class OrderController extends Controller
             }
 
             $order->update(['total' => $total]);
-            
+
+            // Notificación inicial de "Preparando"
+            try {
+                switch ($channel) {
+                    case 'sms':
+                        if ($order->customer_phone) {
+                            $msg = "Hola {$order->customer_name}, hemos creado tu pedido #{$order->order_number} en {$account->name} y ya lo estamos preparando.";
+                            $smsService->sendSms($order->customer_phone, $msg);
+                        }
+                        break;
+
+                    case 'whatsapp':
+                        if ($order->customer_phone) {
+                            $message = OrderMessages::orderPreparing($order);
+                            $whatsappService->sendTextMessage($order->customer_phone, $message);
+                        }
+                        break;
+
+                    case 'email':
+                        if ($order->customer_email) {
+                            Mail::to($order->customer_email)->send(
+                                new GenericEmail(
+                                    "Pedido Creado #{$order->order_number}",
+                                    "Tu pedido ha sido creado y está en preparación."
+                                )
+                            );
+                        }
+                        break;
+                }
+            } catch (\Exception $e) {
+                Log::error("Error enviando notificación inicial de pedido: " . $e->getMessage());
+            }
+
             DB::commit();
 
             return response()->json(['success' => true, 'data' => $order]);
@@ -204,7 +267,7 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error($e);
-            return response()->json(['success' => false, 'message' => 'Error al crear pedido'], 500);
+            return response()->json(['success' => false, 'message' => 'Error al crear pedido: ' . $e->getMessage()], 500);
         }
     }
 }

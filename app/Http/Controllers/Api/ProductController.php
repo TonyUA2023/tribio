@@ -8,6 +8,7 @@ use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
@@ -34,11 +35,12 @@ class ProductController extends Controller
 
         // 3. Procesar URLs de imágenes para el frontend
         $products->transform(function ($product) {
-            if ($product->image) {
-                $product->image_url = url('storage/' . $product->image);
-            } else {
-                $product->image_url = null;
-            }
+            $product->image_url = $product->image ? url('storage/' . $product->image) : null;
+            
+            // Asegurar que los tipos de datos sean correctos para JS
+            $product->price = (float) $product->price;
+            $product->available = (bool) $product->available;
+            
             return $product;
         });
 
@@ -57,48 +59,59 @@ class ProductController extends Controller
         // 1. Validar propiedad de la cuenta
         $account = Account::where('id', $accountId)
             ->where('user_id', auth()->id())
-            ->firstOrFail();
+            ->first();
 
-        // 2. Validar datos
-        $request->validate([
+        if (!$account) {
+            return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
+        }
+
+        // 2. Validar datos básicos
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
-            'image' => 'nullable|image|max:2048', // Max 2MB
+            'image' => 'nullable|image|max:5120', // Max 5MB
             'category' => 'nullable|string|max:100',
+            'description' => 'nullable|string',
         ]);
 
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
         try {
+            // Empezamos con todos los datos del request
             $data = $request->all();
             $data['account_id'] = $accountId;
 
-            // 3. Manejar la subida de imagen
+            // 3. FIX: Convertir "true"/"false" (strings de FormData) a booleanos reales
+            if (isset($data['available'])) {
+                $data['available'] = filter_var($data['available'], FILTER_VALIDATE_BOOLEAN);
+            } else {
+                $data['available'] = true; // Por defecto disponible
+            }
+
+            if (isset($data['featured'])) {
+                $data['featured'] = filter_var($data['featured'], FILTER_VALIDATE_BOOLEAN);
+            }
+
+            // 4. FIX: Convertir JSON string a Array (para 'options', 'ingredients', etc)
+            if (isset($data['options']) && is_string($data['options'])) {
+                $decoded = json_decode($data['options'], true);
+                $data['options'] = json_last_error() === JSON_ERROR_NONE ? $decoded : [];
+            }
+
+            // 5. Manejar subida de imagen
             if ($request->hasFile('image')) {
-                // Guardar en storage/app/public/products/{accountId}
+                // Guardar en: storage/app/public/products/{accountId}/filename.jpg
                 $path = $request->file('image')->store("products/{$accountId}", 'public');
                 $data['image'] = $path;
             }
 
-            // 4. Procesar campos que vienen como String desde React Native FormData
-            // 'available' y 'featured' suelen llegar como "true"/"false" o "1"/"0"
-            if (isset($data['available'])) {
-                $data['available'] = filter_var($data['available'], FILTER_VALIDATE_BOOLEAN);
-            }
-            if (isset($data['featured'])) {
-                $data['featured'] = filter_var($data['featured'], FILTER_VALIDATE_BOOLEAN);
-            }
-            
-            // 'options' llega como string JSON desde la App: '[{"name":"Talla","values":["S","M"]}]'
-            if (isset($data['options']) && is_string($data['options'])) {
-                $data['options'] = json_decode($data['options'], true);
-            }
-
-            // 5. Crear producto
+            // 6. Crear en Base de Datos
             $product = Product::create($data);
 
-            // Devolver URL completa
-            if ($product->image) {
-                $product->image_url = url('storage/' . $product->image);
-            }
+            // Generar URL completa para la respuesta inmediata
+            $product->image_url = $product->image ? url('storage/' . $product->image) : null;
 
             return response()->json([
                 'success' => true,
@@ -108,37 +121,54 @@ class ProductController extends Controller
 
         } catch (\Exception $e) {
             Log::error("Error creando producto: " . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al guardar el producto.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno al guardar: ' . $e->getMessage()], 500);
         }
     }
 
     /**
      * Actualizar un producto existente.
-     * POST /api/products/{id} (Usando POST para soportar FormData con imágenes)
+     * POST /api/products/{id} (Usando POST para soportar FormData)
      */
     public function update(Request $request, $id)
     {
-        // 1. Buscar producto y verificar permisos
         $product = Product::findOrFail($id);
 
-        // Verificar que la cuenta del producto pertenece al usuario actual
+        // 1. Verificar Autorización
         if ($product->account->user_id !== auth()->id()) {
             return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
         }
 
         // 2. Validar
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
             'price' => 'sometimes|numeric|min:0',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|max:5120',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
 
         try {
             $data = $request->all();
 
-            // 3. Manejar Imagen (Reemplazo)
+            // 3. Procesar Booleanos y JSON (Igual que en store)
+            if (isset($data['available'])) {
+                $data['available'] = filter_var($data['available'], FILTER_VALIDATE_BOOLEAN);
+            }
+            
+            if (isset($data['featured'])) {
+                $data['featured'] = filter_var($data['featured'], FILTER_VALIDATE_BOOLEAN);
+            }
+
+            if (isset($data['options']) && is_string($data['options'])) {
+                $decoded = json_decode($data['options'], true);
+                $data['options'] = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+            }
+
+            // 4. Manejar Imagen (Reemplazo)
             if ($request->hasFile('image')) {
-                // Eliminar imagen anterior si existe
+                // Borrar anterior si existe
                 if ($product->image && Storage::disk('public')->exists($product->image)) {
                     Storage::disk('public')->delete($product->image);
                 }
@@ -148,28 +178,11 @@ class ProductController extends Controller
                 $data['image'] = $path;
             }
 
-            // 4. Procesar booleanos y JSON (Fix para FormData)
-            if (isset($data['available'])) {
-                $data['available'] = filter_var($data['available'], FILTER_VALIDATE_BOOLEAN);
-            }
-            if (isset($data['featured'])) {
-                $data['featured'] = filter_var($data['featured'], FILTER_VALIDATE_BOOLEAN);
-            }
-            if (isset($data['options']) && is_string($data['options'])) {
-                $decoded = json_decode($data['options'], true);
-                // Solo asignar si es un JSON válido, sino usar el valor original o null
-                $data['options'] = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
-            }
-
             // 5. Actualizar
             $product->update($data);
 
             // Refrescar URL
-            if ($product->image) {
-                $product->image_url = url('storage/' . $product->image);
-            } else {
-                $product->image_url = null;
-            }
+            $product->image_url = $product->image ? url('storage/' . $product->image) : null;
 
             return response()->json([
                 'success' => true,
@@ -195,9 +208,6 @@ class ProductController extends Controller
             return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
         }
 
-        // Opcional: Eliminar la imagen física si se desea borrar permanentemente, 
-        // pero como usamos SoftDeletes en el modelo, mejor mantenemos la imagen por si se restaura.
-        
         $product->delete();
 
         return response()->json([
@@ -207,7 +217,7 @@ class ProductController extends Controller
     }
 
     /**
-     * Alternar disponibilidad rápida (Switch ON/OFF).
+     * Alternar disponibilidad rápida.
      * POST /api/products/{id}/toggle-availability
      */
     public function toggleAvailability($id)
@@ -218,7 +228,6 @@ class ProductController extends Controller
             return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
         }
 
-        // Invertir valor
         $product->available = !$product->available;
         $product->save();
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Post } from '@/types/post';
-import { FaHeart, FaRegHeart, FaComment, FaShare, FaPlay, FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaComment, FaShare, FaPlay, FaTimes, FaChevronLeft, FaChevronRight, FaThLarge } from 'react-icons/fa';
 import axios from 'axios';
+import { router } from '@inertiajs/react';
 
 interface PostGridModalProps {
   accountSlug: string;
@@ -214,8 +215,26 @@ const PostGridModal: React.FC<PostGridModalProps> = ({
     );
   }
 
+  const handleViewFullFeed = () => {
+    router.visit(`/${accountSlug}/content`);
+  };
+
   return (
     <>
+      {/* Botón "Ver Más" */}
+      {posts.length > 0 && (
+        <div className="flex justify-center mb-4">
+          <button
+            onClick={handleViewFullFeed}
+            className="group flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-lg"
+            style={{ backgroundColor: accentColor, color: '#fff' }}
+          >
+            <FaThLarge className="w-4 h-4" />
+            <span>Ver Más Publicaciones</span>
+          </button>
+        </div>
+      )}
+
       {/* Grid de 3 columnas con thumbnails */}
       <div className="grid grid-cols-3 gap-1">
         {posts.map((post, index) => (

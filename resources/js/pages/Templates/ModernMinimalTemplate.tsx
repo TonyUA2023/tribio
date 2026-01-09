@@ -21,6 +21,7 @@ import { ScrollReveal } from '@/components/animated/ScrollReveal';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { StoryCircle } from '@/components/stories/StoryCircle';
 import PostGridModal from '@/components/posts/PostGridModal';
+import { ContentButton } from '@/components/content/ContentButton';
 
 // --- INTERFACES (MANTENIDAS) ---
 export interface ModernMinimalConfig {
@@ -362,15 +363,15 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
 
             {/* Posts Grid Modal */}
             <ScrollReveal animation="fade">
-               <section>
+               <section data-posts-section>
                   <h2 className="text-white font-bold text-xl mb-6 flex items-center gap-2 px-2">
                     <span style={{ color: primaryGold }}>🎬</span>
                     <span>Nuestras <span style={{ color: primaryGold }}>Publicaciones</span></span>
                   </h2>
                   <div className="rounded-2xl overflow-hidden border border-white/10">
-                    <PostGridModal 
-                      accountSlug={accountSlug} 
-                      accentColor={primaryGold} 
+                    <PostGridModal
+                      accountSlug={accountSlug}
+                      accentColor={primaryGold}
                       ctaButton={{
                         label: 'Agendar',
                         onClick: () => {}, // El BookingWidget maneja esto
@@ -493,6 +494,13 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
               <FaWhatsapp size={28} />
             </a>
           )}
+
+          {/* Botón de Contenido Multimedia */}
+          <ContentButton
+            accountSlug={accountSlug}
+            accentColor={primaryGold}
+            position="left"
+          />
 
           {/* Widget de Reserva (Booking) */}
           <div className="fixed bottom-6 left-4 right-4 z-50 md:absolute md:bottom-6 md:w-[calc(100%-32px)]">

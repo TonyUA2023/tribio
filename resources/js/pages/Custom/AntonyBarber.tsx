@@ -354,7 +354,7 @@ const MajesticBarberCard = () => {
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-2 animate-fade-up delay-100 tracking-tight drop-shadow-2xl">
-              {profile.name || 'MAJESTIC'}{' '}
+              {'MAJESTIC'}{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600">
                 BARBER
               </span>

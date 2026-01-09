@@ -49,7 +49,7 @@ class ProfileDisplayController extends Controller
 
     protected function findAccountBySlug(string $account_slug): Account
     {
-        $account = Account::with('templates')
+        $account = Account::with(['templates', 'activeModules'])
             ->where('slug', $account_slug)
             ->first();
 
@@ -160,7 +160,7 @@ class ProfileDisplayController extends Controller
             if ($activeTemplate) {
                 
                 // 🔥 LOGICA NUEVA: Cargar productos si la plantilla es de showcase 🔥
-                if (in_array($activeTemplate->slug, ['product-showcase', 'natural-cafe'])) {
+                if (in_array($activeTemplate->slug, ['product-showcase', 'natural-cafe', 'wellness-coach'])) {
                     $products = Product::where('account_id', $account->id)
                         ->where('available', true)
                         ->orderBy('sort_order', 'asc')
@@ -236,6 +236,9 @@ class ProfileDisplayController extends Controller
         $component = $this->resolveInertiaComponent($profile, $activeTemplate);
         $seoData = $this->buildSeoMetadata($account, $profile, $cover, $logo);
 
+        // Preparar módulos activos
+        $activeModules = $account->activeModules->pluck('module_slug')->toArray();
+
         return Inertia::render($component, [
             'account' => $account,
             'profile' => $payloadProfile,
@@ -243,6 +246,7 @@ class ProfileDisplayController extends Controller
             'config' => $templateConfig,
             'isPreview' => false,
             'activeTemplate' => $activeTemplate,
+            'activeModules' => $activeModules,
         ]);
     }
 
@@ -346,6 +350,8 @@ class ProfileDisplayController extends Controller
                 // 👇 NUEVA RUTA PARA LA PLANTILLA DE PRODUCTOS
                 'product-showcase' => 'Templates/ProductShowcaseTemplate',
                 'natural-cafe'     => 'Templates/NaturalCafeTemplate',
+                'wellness-coach'  => 'Templates/WellnessCoachTemplate',
+                'carwash-modern'  => 'Templates/CarWashTemplate',
                 default => 'Templates/ModernMinimalTemplate', 
             };
         }

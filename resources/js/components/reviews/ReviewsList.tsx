@@ -50,7 +50,7 @@ export const ReviewsList: React.FC<ReviewsListProps> = ({
         return (
             <div className="text-center py-8">
                 <div className="inline-block w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-400 mt-2">Cargando reseñas...</p>
+                <p className="text-gray-400 mt-2">Loading reviews...</p>
             </div>
         );
     }
@@ -60,7 +60,7 @@ export const ReviewsList: React.FC<ReviewsListProps> = ({
             <div className="text-center py-12 px-6 rounded-2xl bg-slate-900/50 border border-white/5">
                 <div className="text-5xl mb-4">💬</div>
                 <p className="text-gray-400">
-                    Aún no hay reseñas. ¡Sé el primero en compartir tu experiencia!
+                    No reviews yet. Be the first to share your experience!
                 </p>
             </div>
         );
@@ -88,7 +88,7 @@ export const ReviewsList: React.FC<ReviewsListProps> = ({
                     ))}
                 </div>
                 <p className="text-gray-300 text-sm">
-                    Basado en {reviewsData.total} {reviewsData.total === 1 ? 'reseña' : 'reseñas'}
+                    Based on {reviewsData.total} {reviewsData.total === 1 ? 'review' : 'reviews'}
                 </p>
             </div>
 

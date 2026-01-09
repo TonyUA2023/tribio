@@ -11,38 +11,132 @@ use Illuminate\Support\Facades\Validator;
 
 class AccountProfileController extends Controller
 {
+    // =========================================================================
+    // 1. MOSTRAR PERFIL (Carga de datos completa)
+    // =========================================================================
     public function show(Request $request)
     {
         $user = $request->user();
         
-        // Buscar cuenta
-        $account = Account::where('user_id', $user->id)->first();
+        // Cargar cuenta con sus relaciones necesarias:
+        // - profiles: para sacar el notification_email
+        // - activeModules: para listar los módulos activos
+        $account = Account::with(['profiles', 'activeModules'])
+                    ->where('user_id', $user->id)
+                    ->first();
 
         if (!$account) {
             return response()->json(['message' => 'Cuenta no encontrada'], 404);
         }
 
-        // Buscar imágenes
+        // Obtener el perfil principal (asumimos el primero)
+        $profile = $account->profiles->first();
+
+        // Imágenes
         $logo = ProfileMedia::where('account_id', $account->id)->where('type', 'profile_logo')->first();
         $cover = ProfileMedia::where('account_id', $account->id)->where('type', 'cover_photo')->first();
 
+        // Formatear Módulos para el Frontend
+        $modules = $account->activeModules->map(function($module) {
+            return [
+                'slug' => $module->module_slug,
+                'is_active' => $module->is_active,
+                // Puedes agregar nombres amigables aquí o en el frontend
+                'installed_at' => $module->installed_at
+            ];
+        });
+
         return response()->json([
-            'id' => $account->id,
-            'business_name' => $account->name,
-            'slug' => $account->slug,
-            'category' => $account->businessCategory?->name ?? 'General',
-            'logo_url' => $logo ? $logo->url : null,
-            'cover_url' => $cover ? $cover->url : null,
-            'phone' => '999 999 999', 
-            'address' => 'Dirección...', 
+            'id'             => $account->id,
+            'business_name'  => $account->name,
+            'slug'           => $account->slug,
+            'category'       => $account->businessCategory?->name ?? 'General',
+            'description'    => $account->description,
+            
+            'logo_url'       => $logo ? $logo->url : $account->logo_url,
+            'cover_url'      => $cover ? $cover->url : $account->cover_url,
+            
+            'phone'          => $account->phone, 
+            'address'        => $account->address, 
+            
+            // ✅ NUEVO: Email de notificaciones (Desde la tabla PROFILES)
+            'notification_email' => $profile ? $profile->notification_email : null,
+
+            // ✅ NUEVO: Módulos Activos (Desde la tabla ACCOUNT_MODULES)
+            'active_modules' => $modules,
+
+            'social_links'   => [
+                'whatsapp'  => $account->whatsapp,
+                'instagram' => $account->instagram,
+                'tiktok'    => $account->tiktok,
+                'facebook'  => $account->facebook,
+            ],
+
             'rating_average' => 5.0,
-            'rating_count' => 10,
-            'is_active' => true,
+            'rating_count'   => 10,
+            'is_active'      => true,
         ]);
     }
 
-    // ... (El resto de tus métodos uploadLogo y uploadCover que ya tenías están bien)
-    
+    // =========================================================================
+    // 2. ACTUALIZAR PERFIL
+    // =========================================================================
+    public function update(Request $request)
+    {
+        $user = $request->user();
+        
+        // Eager load profiles para poder editarlo
+        $account = Account::with('profiles')->where('user_id', $user->id)->firstOrFail();
+
+        // 1. Validar
+        $validator = Validator::make($request->all(), [
+            'name'               => 'nullable|string|max:255',
+            'description'        => 'nullable|string',
+            'phone'              => 'nullable|string|max:50',
+            'address'            => 'nullable|string|max:255',
+            'social_links'       => 'nullable',
+            // Validamos el email de notificaciones
+            'notification_email' => 'nullable|email|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        // 2. Actualizar campos de ACCOUNT
+        if ($request->has('name')) $account->name = $request->name;
+        if ($request->has('description')) $account->description = $request->description;
+        if ($request->has('phone')) $account->phone = $request->phone;
+        if ($request->has('address')) $account->address = $request->address;
+
+        // 3. Actualizar campos de PROFILE (notification_email)
+        if ($request->has('notification_email')) {
+            $profile = $account->profiles->first();
+            if ($profile) {
+                $profile->notification_email = $request->notification_email;
+                $profile->save();
+            }
+        }
+
+        // 4. Actualizar REDES SOCIALES
+        if ($request->has('social_links')) {
+            $social = $request->input('social_links');
+            if (is_string($social)) $social = json_decode($social, true);
+
+            if (is_array($social)) {
+                if (array_key_exists('whatsapp', $social))  $account->whatsapp  = $social['whatsapp'];
+                if (array_key_exists('instagram', $social)) $account->instagram = $social['instagram'];
+                if (array_key_exists('tiktok', $social))    $account->tiktok    = $social['tiktok'];
+                if (array_key_exists('facebook', $social))  $account->facebook  = $social['facebook'];
+            }
+        }
+
+        $account->save();
+
+        return $this->show($request);
+    }
+
+    // --- MÉTODOS DE UPLOAD SIN CAMBIOS ---
     public function uploadLogo(Request $request) { return $this->handleUpload($request, 'profile_logo'); }
     public function uploadCover(Request $request) { return $this->handleUpload($request, 'cover_photo'); }
 
@@ -59,13 +153,11 @@ class AccountProfileController extends Controller
 
         if (!$account) return response()->json(['error' => 'No account'], 404);
 
-        // Limpiar anterior
         ProfileMedia::where('account_id', $account->id)->where('type', $type)->each(function ($media) {
             if (Storage::disk('public')->exists($media->file_path)) Storage::disk('public')->delete($media->file_path);
             $media->delete();
         });
 
-        // Guardar nuevo
         $file = $request->file('file');
         $extension = $file->getClientOriginalExtension();
         $newFileName = uniqid($type . '_') . '.' . $extension;
@@ -83,63 +175,11 @@ class AccountProfileController extends Controller
             'file_size' => $file->getSize(),
             'order' => 0,
         ]);
-
-        return response()->json([
-            'success' => true,
-            'url' => $media->url,
-            'message' => 'Subida exitosa'
-        ]);
-    }
-    /**
-     * Actualizar perfil (Incluyendo Redes Sociales)
-     * ESTE ES EL MÉTODO QUE FALTA
-     */
-    public function update(Request $request)
-    {
-        $user = \Illuminate\Support\Facades\Auth::user();
-        $account = \App\Models\Account::where('user_id', $user->id)->first();
-
-        if (!$account) {
-            return response()->json(['success' => false, 'message' => 'Cuenta no encontrada'], 404);
-        }
-
-        // 1. Validar los datos entrantes
-        $validator = Validator::make($request->all(), [
-            'business_name' => 'sometimes|string|max:255',
-            'category'      => 'sometimes|string|max:100',
-            'description'   => 'nullable|string',
-            'phone'         => 'nullable|string|max:50',
-            'address'       => 'nullable|string|max:255',
-            'social_links'  => 'nullable|array', // Validamos que llegue como array
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        // 2. Actualizar campos básicos
-        // Usamos fill para actualizar solo lo que llega, excepto social_links
-        $account->fill($request->except(['social_links', 'logo', 'cover']));
-
-        // 3. Actualizar Redes Sociales
-        // La App envía: { social_links: { whatsapp: "...", instagram: "..." } }
-        if ($request->has('social_links')) {
-            $social = $request->input('social_links');
-            
-            // Asignamos cada red social a su columna en la BD
-            if (isset($social['whatsapp']))  $account->whatsapp = $social['whatsapp'];
-            if (isset($social['instagram'])) $account->instagram = $social['instagram'];
-            if (isset($social['tiktok']))    $account->tiktok = $social['tiktok'];
-            if (isset($social['facebook']))  $account->facebook = $social['facebook'];
-        }
-
-        // 4. Guardar cambios en la BD
+        
+        if ($type === 'profile_logo') $account->logo_url = $media->url;
+        if ($type === 'cover_photo') $account->cover_url = $media->url;
         $account->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Perfil actualizado correctamente',
-            'data' => $account
-        ]);
+        return response()->json(['success' => true, 'url' => $media->url]);
     }
 }

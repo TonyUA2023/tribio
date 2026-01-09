@@ -31,13 +31,13 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
 
         // Validar tipo de archivo
         if (!file.type.startsWith('image/')) {
-            alert('Por favor selecciona una imagen válida');
+            alert('Please select a valid image');
             return;
         }
 
         // Validar tamaño (máximo 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            alert('La imagen no debe superar los 5MB');
+            alert('Image must not exceed 5MB');
             return;
         }
 
@@ -63,7 +63,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
         e.preventDefault();
 
         if (!formData.client_name || formData.rating === 0 || !formData.comment) {
-            alert('Por favor completa todos los campos requeridos (Nombre, Calificación y Comentario)');
+            alert('Please complete all required fields (Name, Rating and Comment)');
             return;
         }
 
@@ -108,11 +108,11 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
                     onSuccess?.();
                 }, 3000);
             } else {
-                alert(result.message || 'Error al enviar la reseña');
+                alert(result.message || 'Error sending review');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al procesar la solicitud');
+            alert('Error processing request');
         } finally {
             setIsSubmitting(false);
         }
@@ -122,9 +122,9 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
         return (
             <div className="text-center py-12 px-6 rounded-2xl bg-gradient-to-br from-green-900/20 to-emerald-900/20 border border-green-500/30">
                 <div className="text-6xl mb-4">✅</div>
-                <h3 className="text-2xl font-bold text-green-400 mb-2">¡Gracias por tu reseña!</h3>
+                <h3 className="text-2xl font-bold text-green-400 mb-2">Thank you for your review!</h3>
                 <p className="text-gray-300">
-                    Tu opinión será publicada una vez aprobada.
+                    Your review will be published once approved.
                 </p>
             </div>
         );
@@ -135,7 +135,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
             {/* Rating Stars */}
             <div className="text-center">
                 <label className="block text-sm font-semibold text-gray-200 mb-3">
-                    Calificación *
+                    Rating *
                 </label>
                 <div className="flex justify-center gap-2">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -160,11 +160,11 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
                 </div>
                 {formData.rating > 0 && (
                     <p className="text-amber-400 text-sm mt-2 font-medium">
-                        {formData.rating === 5 && '¡Excelente! ⭐'}
-                        {formData.rating === 4 && 'Muy bueno 👍'}
-                        {formData.rating === 3 && 'Bueno'}
-                        {formData.rating === 2 && 'Regular'}
-                        {formData.rating === 1 && 'Necesita mejorar'}
+                        {formData.rating === 5 && 'Excellent! ⭐'}
+                        {formData.rating === 4 && 'Very good 👍'}
+                        {formData.rating === 3 && 'Good'}
+                        {formData.rating === 2 && 'Fair'}
+                        {formData.rating === 1 && 'Needs improvement'}
                     </p>
                 )}
             </div>
@@ -173,13 +173,13 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
             <div>
                 <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
                     <FaUser size={14} style={{ color: accentColor }} />
-                    Tu Nombre *
+                    Your Name *
                 </label>
                 <input
                     type="text"
                     value={formData.client_name}
                     onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                    placeholder="Ej: Juan Pérez"
+                    placeholder="E.g.: John Doe"
                     className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-gray-700 text-white
                         placeholder:text-gray-500 focus:outline-none focus:ring-2 transition-all"
                     style={{
@@ -192,13 +192,13 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
             <div>
                 <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
                     <FaEnvelope size={14} style={{ color: accentColor }} />
-                    Email (Opcional)
+                    Email (Optional)
                 </label>
                 <input
                     type="email"
                     value={formData.client_email}
                     onChange={(e) => setFormData({ ...formData, client_email: e.target.value })}
-                    placeholder="tu@email.com"
+                    placeholder="your@email.com"
                     className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-gray-700 text-white
                         placeholder:text-gray-500 focus:outline-none focus:ring-2 transition-all"
                     style={{
@@ -210,12 +210,12 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
             {/* Comment */}
             <div>
                 <label className="block text-sm font-semibold text-gray-200 mb-2">
-                    Tu Opinión *
+                    Your Review *
                 </label>
                 <textarea
                     value={formData.comment}
                     onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-                    placeholder="Cuéntanos sobre tu experiencia..."
+                    placeholder="Tell us about your experience..."
                     rows={4}
                     maxLength={1000}
                     className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-gray-700 text-white
@@ -233,7 +233,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
             <div>
                 <label className="block text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2">
                     <FaCamera size={14} style={{ color: accentColor }} />
-                    Foto del Trabajo (Opcional)
+                    Work Photo (Optional)
                 </label>
 
                 <input
@@ -254,10 +254,10 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
                     >
                         <FaCamera size={32} style={{ color: accentColor, opacity: 0.7 }} />
                         <span className="text-sm font-medium">
-                            Sube una foto de tu corte
+                            Upload a photo of your service
                         </span>
                         <span className="text-xs text-gray-500">
-                            JPG, PNG o HEIC · Máximo 5MB
+                            JPG, PNG or HEIC · Max 5MB
                         </span>
                     </button>
                 ) : (
@@ -273,7 +273,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
                             className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white
                                 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
                         >
-                            ✕ Quitar
+                            ✕ Remove
                         </button>
                     </div>
                 )}
@@ -291,7 +291,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
                     boxShadow: `0 10px 30px ${accentColor}40`,
                 }}
             >
-                {isSubmitting ? '📤 Enviando...' : '✨ Enviar Reseña'}
+                {isSubmitting ? '📤 Sending...' : '✨ Submit Review'}
             </button>
         </form>
     );

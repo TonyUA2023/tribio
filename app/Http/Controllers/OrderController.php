@@ -7,7 +7,10 @@ use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log; // Agregado para logs de errores
+use Illuminate\Support\Facades\Mail; // Agregado para emails
 use Inertia\Inertia;
+use App\Services\BrevoSmsService; // Importamos el servicio de SMS
 
 class OrderController extends Controller
 {
@@ -71,33 +74,102 @@ class OrderController extends Controller
     }
 
     /**
-     * Actualizar estado del pedido
+     * Actualizar estado del pedido (CON NOTIFICACIONES MULTICANAL)
      */
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(Request $request, Order $order, BrevoSmsService $smsService)
     {
         // Verificar que el pedido pertenece a la cuenta del usuario
         if ($order->account_id !== Auth::user()->account->id) {
             abort(403, 'No autorizado');
         }
 
+        // ACTUALIZADO: Estados estandarizados (Pending -> Preparing -> Ready -> Delivered)
         $validated = $request->validate([
-            'status' => 'required|in:pending,confirmed,preparing,in_delivery,delivered,cancelled',
+            'status' => 'required|in:pending,preparing,ready,delivered,cancelled',
         ]);
 
-        $updateData = ['status' => $validated['status']];
+        $newStatus = $validated['status'];
+        $updateData = ['status' => $newStatus];
 
         // Actualizar timestamps según el estado
-        if ($validated['status'] === 'confirmed' && !$order->confirmed_at) {
+        // 'preparing' asume confirmación
+        if ($newStatus === 'preparing' && !$order->confirmed_at) {
             $updateData['confirmed_at'] = now();
         }
 
-        if ($validated['status'] === 'delivered' && !$order->delivered_at) {
+        if ($newStatus === 'delivered' && !$order->delivered_at) {
             $updateData['delivered_at'] = now();
         }
 
         $order->update($updateData);
 
-        return redirect()->back()->with('success', 'Estado del pedido actualizado');
+        // --- LÓGICA DE NOTIFICACIONES ---
+        $messageText = $this->getNotificationMessage($order, $newStatus);
+        $whatsappLink = null;
+        $notificationSent = false;
+
+        if ($messageText) {
+            switch ($order->notification_channel) {
+                case 'sms':
+                    // Envío Automático por Brevo
+                    if ($order->customer_phone) {
+                        $smsService->sendSms($order->customer_phone, $messageText);
+                        $notificationSent = true;
+                    }
+                    break;
+
+                case 'whatsapp':
+                    // Generar Link para envío manual (se pasa al frontend en flash session)
+                    if ($order->customer_phone) {
+                        $phone = preg_replace('/[^0-9]/', '', $order->customer_phone);
+                        $whatsappLink = "https://wa.me/{$phone}?text=" . urlencode($messageText);
+                    }
+                    break;
+
+                case 'email':
+                default:
+                    // Envío por Email
+                    if ($order->customer_email) {
+                        try {
+                            // Usamos GenericEmail para simplificar, o tu mailable específico
+                            Mail::to($order->customer_email)->send(
+                                new \App\Mail\GenericEmail(
+                                    "Actualización de Pedido #{$order->order_number}", 
+                                    $messageText
+                                )
+                            );
+                            $notificationSent = true;
+                        } catch (\Exception $e) {
+                            Log::error("Error enviando email pedido {$order->id}: " . $e->getMessage());
+                        }
+                    }
+                    break;
+            }
+        }
+
+        // Retornamos redirect con datos flash
+        // Si hay whatsapp_link, el frontend (React) debería detectarlo y mostrar un modal o botón
+        return redirect()->back()
+            ->with('success', 'Estado actualizado a ' . ucfirst($newStatus))
+            ->with('whatsapp_link', $whatsappLink);
+    }
+
+    /**
+     * Helper privado para generar mensajes de notificación
+     */
+    private function getNotificationMessage($order, $status)
+    {
+        $id = $order->order_number;
+        // Obtenemos el nombre del negocio desde la relación account
+        $business = $order->account->name ?? 'JSTACK';
+
+        return match ($status) {
+            'preparing' => "Hola {$order->customer_name}, tu pedido #{$id} en {$business} se está preparando 👨‍🍳.",
+            'ready'     => "¡{$order->customer_name}! Tu pedido #{$id} está LISTO ✅. Puedes recogerlo o esperar el delivery.",
+            'delivered' => "Tu pedido #{$id} ha sido entregado. ¡Gracias por comprar en {$business}! ⭐",
+            'cancelled' => "Tu pedido #{$id} en {$business} ha sido cancelado. Contáctanos para más info.",
+            default     => null
+        };
     }
 
     /**
@@ -130,6 +202,9 @@ class OrderController extends Controller
         $dateFrom = $request->input('date_from', now()->subDays(30));
         $dateTo = $request->input('date_to', now());
 
+        // Array de estados considerados "activos" o "validos" para ingresos
+        $validStatuses = ['confirmed', 'preparing', 'ready', 'delivered']; // Actualizado 'ready'
+
         $stats = [
             // Pedidos de hoy
             'orders_today' => Order::where('account_id', $account->id)
@@ -141,27 +216,27 @@ class OrderController extends Controller
                 ->where('status', 'pending')
                 ->count(),
 
-            // Pedidos en proceso (confirmed + preparing + in_delivery)
+            // Pedidos en proceso (preparing + ready)
             'orders_in_progress' => Order::where('account_id', $account->id)
-                ->whereIn('status', ['confirmed', 'preparing', 'in_delivery'])
+                ->whereIn('status', ['preparing', 'ready'])
                 ->count(),
 
             // Ingresos del período
             'revenue' => Order::where('account_id', $account->id)
                 ->whereBetween('created_at', [$dateFrom, $dateTo])
-                ->whereIn('status', ['confirmed', 'preparing', 'in_delivery', 'delivered'])
+                ->whereIn('status', $validStatuses)
                 ->sum('total'),
 
             // Ingresos de hoy
             'revenue_today' => Order::where('account_id', $account->id)
                 ->whereDate('created_at', today())
-                ->whereIn('status', ['confirmed', 'preparing', 'in_delivery', 'delivered'])
+                ->whereIn('status', $validStatuses)
                 ->sum('total'),
 
             // Ticket promedio
             'average_ticket' => Order::where('account_id', $account->id)
                 ->whereBetween('created_at', [$dateFrom, $dateTo])
-                ->whereIn('status', ['confirmed', 'preparing', 'in_delivery', 'delivered'])
+                ->whereIn('status', $validStatuses)
                 ->avg('total'),
 
             // Total de pedidos en el período
@@ -171,10 +246,10 @@ class OrderController extends Controller
 
             // Productos más vendidos
             'top_products' => OrderItem::select('product_name', DB::raw('SUM(quantity) as total_sold'))
-                ->whereHas('order', function ($q) use ($account, $dateFrom, $dateTo) {
+                ->whereHas('order', function ($q) use ($account, $dateFrom, $dateTo, $validStatuses) {
                     $q->where('account_id', $account->id)
                       ->whereBetween('created_at', [$dateFrom, $dateTo])
-                      ->whereIn('status', ['confirmed', 'preparing', 'in_delivery', 'delivered']);
+                      ->whereIn('status', $validStatuses);
                 })
                 ->groupBy('product_name')
                 ->orderBy('total_sold', 'desc')

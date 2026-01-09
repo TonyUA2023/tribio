@@ -34,5 +34,22 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'brevo' => [
+        // Usamos la variable que ya tienes definida en tu .env
+        'key' => env('BREVO_KEY'),
+        // Definimos el remitente del SMS (máx 11 caracteres)
+        'sms_sender' => env('BREVO_SMS_SENDER', 'JSTACK'),
+    ],
+
+    'whatsapp' => [
+        // WhatsApp Business API (Meta/Facebook)
+        // Obtén estos valores desde: https://developers.facebook.com/apps/
+        'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'business_phone_number' => env('WHATSAPP_BUSINESS_PHONE_NUMBER'),
+        'api_version' => env('WHATSAPP_API_VERSION', 'v21.0'),
+        // Webhook verification token (para recibir mensajes entrantes)
+        'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
+    ],
 
 ];

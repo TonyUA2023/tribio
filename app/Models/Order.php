@@ -12,6 +12,13 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
+    // --- 1. CONSTANTES DE ESTADO (Para evitar errores de escritura) ---
+    const STATUS_PENDING = 'pending';
+    const STATUS_PREPARING = 'preparing';
+    const STATUS_READY = 'ready';       // Reemplaza a 'in_delivery' o cocina
+    const STATUS_DELIVERED = 'delivered';
+    const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         'account_id',
         'order_number',
@@ -28,6 +35,7 @@ class Order extends Model
         'payment_status',
         'confirmed_at',
         'delivered_at',
+        // 'ready_at', // Sugerencia: Podrías agregar esto en una futura migración para medir tiempos de cocina
     ];
 
     protected $casts = [
@@ -47,64 +55,89 @@ class Order extends Model
 
         static::creating(function ($order) {
             if (empty($order->order_number)) {
-                $order->order_number = 'ORD-' . strtoupper(uniqid());
+                // Usamos time() + random para asegurar unicidad y que sea corto
+                $order->order_number = 'ORD-' . strtoupper(substr(uniqid(), -6));
             }
         });
     }
 
     /**
-     * Obtener la cuenta a la que pertenece la orden
+     * RELACIONES
      */
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
     }
 
-    /**
-     * Obtener los items de la orden
-     */
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
 
     /**
-     * Scope para órdenes pendientes
+     * ACCESSOR: Resumen de items para mostrar en la lista de la App
+     * Esto permite usar $order->items_summary automáticamente
      */
+    public function getItemsSummaryAttribute()
+    {
+        // Si ya cargaste la relación items...
+        if ($this->relationLoaded('items')) {
+            $count = $this->items->count();
+            if ($count === 0) return 'Sin productos';
+            
+            $firstItem = $this->items->first();
+            $text = "{$firstItem->quantity}x {$firstItem->product_name}"; // Asumiendo que OrderItem tiene quantity y product_name
+            
+            if ($count > 1) {
+                $rest = $count - 1;
+                $text .= " y $rest más...";
+            }
+            return $text;
+        }
+        return 'Ver detalles...';
+    }
+
+    /**
+     * SCOPES ACTUALIZADOS (Según tu nuevo estándar)
+     */
+    
+    // 1. PENDIENTE
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', self::STATUS_PENDING);
     }
 
-    /**
-     * Scope para órdenes confirmadas
-     */
-    public function scopeConfirmed($query)
-    {
-        return $query->where('status', 'confirmed');
-    }
-
-    /**
-     * Scope para órdenes en preparación
-     */
+    // 2. EN PREPARACIÓN (Quitamos 'confirmed' ya que ahora pasamos directo aquí)
     public function scopePreparing($query)
     {
-        return $query->where('status', 'preparing');
+        return $query->where('status', self::STATUS_PREPARING);
     }
 
-    /**
-     * Scope para órdenes en delivery
-     */
-    public function scopeInDelivery($query)
+    // 3. LISTO (NUEVO - Reemplaza 'in_delivery' para ser agnóstico)
+    public function scopeReady($query)
     {
-        return $query->where('status', 'in_delivery');
+        return $query->where('status', self::STATUS_READY);
     }
 
-    /**
-     * Scope para órdenes entregadas
-     */
+    // 4. ENTREGADO
     public function scopeDelivered($query)
     {
-        return $query->where('status', 'delivered');
+        return $query->where('status', self::STATUS_DELIVERED);
+    }
+
+    // 5. CANCELADO (Faltaba este scope)
+    public function scopeCancelled($query)
+    {
+        return $query->where('status', self::STATUS_CANCELLED);
+    }
+
+    // SCOPE ÚTIL: Activos (Todo lo que no sea historial)
+    public function scopeActive($query)
+    {
+        return $query->whereIn('status', [
+            self::STATUS_PENDING, 
+            self::STATUS_PREPARING, 
+            self::STATUS_READY
+        ]);
     }
 }

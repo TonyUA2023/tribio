@@ -21,6 +21,7 @@ import { ScrollReveal } from '@/components/animated/ScrollReveal';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { StoryCircle } from '@/components/stories/StoryCircle';
 import PostGridModal from '@/components/posts/PostGridModal';
+import { ContentButton } from '@/components/content/ContentButton';
 
 /**
  * Configuración de Plantilla
@@ -334,7 +335,9 @@ export const BarberTemplate: React.FC<BarberTemplateProps> = ({ config, customiz
                   </div>
                   <h2 className="text-2xl font-bold text-gray-100">Publicaciones</h2>
                 </div>
-                <PostGridModal accountSlug={accountSlug} accentColor={primaryColor} />
+                <div data-posts-section>
+                  <PostGridModal accountSlug={accountSlug} accentColor={primaryColor} />
+                </div>
               </div>
             </ScrollReveal>
 
@@ -471,6 +474,13 @@ export const BarberTemplate: React.FC<BarberTemplateProps> = ({ config, customiz
             </ScrollReveal>
           </div>
         </div>
+
+        {/* Content Button - Botón flotante para ver contenido multimedia */}
+        <ContentButton
+          accountSlug={accountSlug}
+          accentColor={primaryColor}
+          position="left"
+        />
 
         {/* Booking Widget - Fixed at bottom */}
         <div className="fixed bottom-6 left-4 right-4 z-50 md:absolute md:bottom-6 md:w-[calc(100%-32px)]">

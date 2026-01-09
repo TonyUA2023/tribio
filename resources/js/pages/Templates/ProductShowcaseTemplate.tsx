@@ -29,6 +29,7 @@ import { ScrollReveal } from '@/components/animated/ScrollReveal';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { StoryCircle } from '@/components/stories/StoryCircle';
 import PostGridModal from '@/components/posts/PostGridModal';
+import { ContentButton } from '@/components/content/ContentButton';
 
 // --- INTERFACES ---
 export interface Product {
@@ -579,7 +580,7 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
                 </section>
 
                 {/* Posts */}
-                <section>
+                <section data-posts-section>
                    <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
                         <span className="text-xl">📸</span> Galería Social
                    </h3>
@@ -600,6 +601,13 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
                 </section>
             </div>
           </main>
+
+          {/* --- CONTENT BUTTON --- */}
+          <ContentButton
+            accountSlug={accountSlug}
+            accentColor={primaryColor}
+            position="left"
+          />
 
           {/* --- FLOATING CART BUTTON --- */}
           {cart.length > 0 && (

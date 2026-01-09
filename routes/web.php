@@ -19,6 +19,7 @@ use App\Http\Controllers\ReviewManagementController;
 use App\Http\Controllers\Api\StoryController;
 // 👇 NUEVO CONTROLADOR PARA PEDIDOS PÚBLICOS
 use App\Http\Controllers\PublicCheckoutController;
+use App\Http\Controllers\ContentFeedController;
 
 /*
 |--------------------------------------------------------------------------
@@ -179,6 +180,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 // Debe ir ANTES de los comodines genéricos /{account_slug}
 Route::post('/{account_slug}/checkout', [PublicCheckoutController::class, 'store'])
     ->name('public.checkout');
+
+// Ruta para feed de contenido estilo TikTok
+Route::get('/{account_slug}/content', [ContentFeedController::class, 'show'])
+    ->name('content.feed');
 
 // Ruta para feed de posts estilo TikTok
 Route::get('/{account_slug}/posts', function ($accountSlug) {

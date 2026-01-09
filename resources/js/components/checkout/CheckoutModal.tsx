@@ -1,7 +1,15 @@
-// resources/js/components/checkout/CheckoutModal.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaTimes, FaUser, FaPhoneAlt, FaWhatsapp, FaInfoCircle } from 'react-icons/fa';
+import { 
+  FaTimes, 
+  FaUser, 
+  FaPhoneAlt, 
+  FaEnvelope, 
+  FaCheckCircle, 
+  FaSpinner,
+  FaWhatsapp,
+  FaCommentDots
+} from 'react-icons/fa';
 import { CartItem } from '@/hooks/useCart';
 
 interface CheckoutModalProps {
@@ -9,10 +17,9 @@ interface CheckoutModalProps {
   onClose: () => void;
   cart: CartItem[];
   total: number;
-  accountSlug: string;     // Necesario para la API
-  whatsappNumber?: string; // Para el mensaje final
+  accountSlug: string;
   primaryColor?: string;
-  onSuccess: () => void;   // Callback para limpiar el carrito
+  onSuccess: () => void;
 }
 
 const money = (n: number) => `S/ ${n.toFixed(2)}`;
@@ -23,159 +30,262 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   cart,
   total,
   accountSlug,
-  whatsappNumber,
   primaryColor = '#fbbf24',
   onSuccess
 }) => {
-  const [data, setData] = useState({ name: '', phone: '' });
+  // 1. Estado del Formulario
+  const [data, setData] = useState({ 
+    name: '', 
+    phone: '', 
+    email: '',
+    notification_channel: 'whatsapp' // Opción por defecto
+  });
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderComplete, setOrderComplete] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Reiniciar estado al abrir/cerrar
+  useEffect(() => {
+    if (isOpen) {
+      setOrderComplete(null);
+      setErrorMsg(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
+  // 2. Opciones de Canales de Notificación
+  const channels = [
+    { id: 'whatsapp', label: 'WhatsApp', icon: <FaWhatsapp size={24} />, color: '#25D366', desc: 'Te enviaremos un link' },
+    { id: 'sms', label: 'SMS', icon: <FaCommentDots size={24} />, color: '#3b82f6', desc: 'Mensaje de texto' },
+    { id: 'email', label: 'Email', icon: <FaEnvelope size={24} />, color: '#ef4444', desc: 'Correo electrónico' },
+  ];
+
+  // Si elige Email, el campo de correo es obligatorio
+  const isEmailRequired = data.notification_channel === 'email';
+
   const handleConfirmOrder = async () => {
+    // Validaciones básicas
     if (cart.length === 0) return;
+    if (!data.name || !data.phone) {
+        setErrorMsg('Nombre y teléfono son obligatorios');
+        return;
+    }
+    if (isEmailRequired && !data.email) {
+        setErrorMsg('El email es obligatorio si eliges recibir notificaciones por correo.');
+        return;
+    }
+
     setIsSubmitting(true);
+    setErrorMsg(null);
 
     try {
-      // 1. Obtener Token CSRF (Laravel Security)
+      // Obtener Token CSRF (Seguridad Laravel)
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-      // 2. Payload para tu Backend
       const payload = {
         customer_name: data.name,
         customer_phone: data.phone,
+        customer_email: data.email || null,
+        notification_channel: data.notification_channel, // 👈 Enviamos la preferencia
         items: cart.map(item => ({
           id: item.id,
           quantity: item.quantity
         }))
       };
 
-      // 3. Enviar a la Base de Datos
       const response = await axios.post(`/${accountSlug}/checkout`, payload, {
         headers: {
-            'X-CSRF-TOKEN': csrfToken,
-            'Accept': 'application/json'
+          'X-CSRF-TOKEN': csrfToken,
+          'Content-Type': 'application/json'
         }
       });
-      
-      const { order_number } = response.data;
 
-      // 4. Preparar Mensaje de WhatsApp
-      const itemsList = cart.map(item => 
-        `▪️ ${item.quantity}x ${item.name}`
-      ).join('\n');
-
-      const message = 
-        `Hola, soy *${data.name}* 👋\n` +
-        `Nuevo pedido *#${order_number}*:\n\n` +
-        `${itemsList}\n\n` +
-        `*💰 Total: ${money(total)}*\n\n` +
-        `Quedo atento a su confirmación para realizar el pago.`;
-
-      // 5. Redirigir y Limpiar
-      const targetNumber = whatsappNumber?.replace(/\D/g, '') || '';
-      const whatsappUrl = `https://wa.me/${targetNumber}?text=${encodeURIComponent(message)}`;
-      
-      window.open(whatsappUrl, '_blank');
-      onSuccess(); // Limpia el carrito en el componente padre
-      onClose();
+      if (response.data.success) {
+        setOrderComplete(response.data.order_number);
+        onSuccess(); // Limpiar carrito en el padre
+      }
 
     } catch (error: any) {
-      console.error("Error en checkout:", error);
-      let errorMsg = 'Error al procesar el pedido.';
-      
-      if (error.response?.status === 419) {
-          errorMsg = 'Tu sesión expiró. Por favor recarga la página.';
-      } else if (error.response?.data?.message) {
-          errorMsg = error.response.data.message;
-      }
-      
-      alert(errorMsg);
+      console.error("Error Checkout:", error);
+      setErrorMsg(error.response?.data?.message || 'Error al procesar el pedido. Intenta nuevamente.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // --- RENDER: PANTALLA DE ÉXITO ---
+  if (orderComplete) {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+        <div className="relative bg-[#111] border border-white/10 w-full max-w-md rounded-3xl p-8 text-center animate-fade-up">
+          <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <FaCheckCircle className="text-4xl text-green-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">¡Pedido Recibido!</h2>
+          <p className="text-gray-400 mb-6">
+            Tu orden <span className="text-white font-mono font-bold">#{orderComplete}</span> ha sido enviada correctamente.
+          </p>
+          
+          <div className="bg-white/5 rounded-xl p-4 mb-6 text-sm text-gray-300">
+             Te notificaremos el avance vía <span className="font-bold text-white uppercase">{data.notification_channel}</span>
+          </div>
+
+          <button 
+            onClick={onClose}
+            className="w-full py-3.5 rounded-xl font-bold text-black hover:brightness-110 transition-all"
+            style={{ backgroundColor: primaryColor }}
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDER: FORMULARIO ---
   return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-6">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
+      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      
-      <div className="relative w-full max-w-md bg-[#111] border-t sm:border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-fade-up">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-bold text-white">Finalizar Pedido</h3>
-          <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 text-white">
+
+      {/* Modal Content */}
+      <div className="relative w-full max-w-lg bg-[#0a0a0a] sm:rounded-3xl rounded-t-3xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-white/5">
+          <div>
+            <h2 className="text-xl font-bold text-white">Finalizar Pedido</h2>
+            <p className="text-sm text-gray-400">Total a pagar: <span className="text-white font-bold">{money(total)}</span></p>
+          </div>
+          <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all">
             <FaTimes />
           </button>
         </div>
 
-        <div className="space-y-4">
-          <div className="bg-white/5 p-4 rounded-xl border border-white/5 mb-4 flex justify-between items-center">
-            <span className="text-gray-400 text-sm">Total a pagar:</span>
-            <div className="text-2xl font-bold text-white" style={{ color: primaryColor }}>{money(total)}</div>
-          </div>
-
-          <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20 mb-4">
-            <p className="text-blue-200 text-xs flex items-start gap-2 leading-relaxed">
-               <FaInfoCircle className="mt-0.5 text-blue-400 shrink-0" />
-               <span>
-                  El pago se coordina por <b>WhatsApp</b> (Yape/Plin/Efectivo) tras confirmar tu pedido.
-               </span>
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-gray-500 uppercase mb-2 ml-1">Tu Nombre</label>
-            <div className="relative">
-              <FaUser className="absolute left-4 top-3.5 text-gray-500 text-sm" />
-              <input 
-                type="text"
-                placeholder="Ej. Juan Pérez"
-                className="w-full bg-[#000] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-white/30 transition-colors text-sm"
-                value={data.name}
-                onChange={e => setData({...data, name: e.target.value})}
-              />
+        {/* Scrollable Form */}
+        <div className="p-6 overflow-y-auto custom-scrollbar">
+          
+          {/* Error Message */}
+          {errorMsg && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center">
+              {errorMsg}
             </div>
-          </div>
+          )}
 
-          <div>
-            <label className="block text-[11px] font-bold text-gray-500 uppercase mb-2 ml-1">WhatsApp / Teléfono</label>
-            <div className="relative">
-              <FaPhoneAlt className="absolute left-4 top-3.5 text-gray-500 text-sm" />
-              <input 
-                type="tel"
-                placeholder="Ej. 999 999 999"
-                className="w-full bg-[#000] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-white/30 transition-colors text-sm"
-                value={data.phone}
-                onChange={e => setData({...data, phone: e.target.value})}
-              />
+          <div className="space-y-5">
+            
+            {/* 1. Datos Personales */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Tu Nombre</label>
+                <div className="relative">
+                  <FaUser className="absolute left-4 top-3.5 text-gray-500 text-sm" />
+                  <input 
+                    type="text"
+                    placeholder="Ej: Juan Pérez"
+                    className="w-full bg-black border border-white/15 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-white/40 transition-colors text-sm"
+                    value={data.name}
+                    onChange={e => setData({...data, name: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Celular / WhatsApp</label>
+                <div className="relative">
+                  <FaPhoneAlt className="absolute left-4 top-3.5 text-gray-500 text-sm" />
+                  <input 
+                    type="tel"
+                    placeholder="999..."
+                    className="w-full bg-black border border-white/15 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-white/40 transition-colors text-sm"
+                    value={data.phone}
+                    onChange={e => setData({...data, phone: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
+                    Email {isEmailRequired ? '(Requerido)' : '(Opcional)'}
+                </label>
+                <div className="relative">
+                  <FaEnvelope className="absolute left-4 top-3.5 text-gray-500 text-sm" />
+                  <input 
+                    type="email"
+                    placeholder="juan@ejemplo.com"
+                    className={`w-full bg-black border rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none transition-colors text-sm ${
+                        isEmailRequired && !data.email ? 'border-red-500/50' : 'border-white/15 focus:border-white/40'
+                    }`}
+                    value={data.email}
+                    onChange={e => setData({...data, email: e.target.value})}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
 
+            {/* 2. Selector de Notificaciones (NUEVO) */}
+            <div className="pt-2">
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-3 text-center">
+                    ¿Cómo quieres recibir actualizaciones?
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                    {channels.map((ch) => {
+                        const isSelected = data.notification_channel === ch.id;
+                        return (
+                            <button
+                                key={ch.id}
+                                onClick={() => setData({...data, notification_channel: ch.id})}
+                                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                                    isSelected 
+                                        ? 'bg-white/10 border-white/30' 
+                                        : 'bg-black border-white/10 hover:bg-white/5 opacity-60 hover:opacity-100'
+                                }`}
+                            >
+                                <div style={{ color: isSelected ? ch.color : '#9ca3af' }} className="mb-2">
+                                    {ch.icon}
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-white' : 'text-gray-500'}`}>
+                                    {ch.label}
+                                </span>
+                                
+                                {isSelected && (
+                                    <div className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ backgroundColor: ch.color }} />
+                                )}
+                            </button>
+                        )
+                    })}
+                </div>
+                <p className="text-[10px] text-gray-500 text-center mt-2">
+                   {channels.find(c => c.id === data.notification_channel)?.desc}
+                </p>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-6 border-t border-white/5 bg-[#0a0a0a] rounded-b-3xl">
           <button
             onClick={handleConfirmOrder}
             disabled={!data.name || !data.phone || isSubmitting}
-            className="w-full py-4 rounded-xl font-bold text-black text-base mt-6 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:brightness-110 transition-all"
+            className="w-full py-4 rounded-xl font-bold text-black text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:brightness-110 active:scale-[0.98] transition-all"
             style={{ backgroundColor: primaryColor }}
           >
             {isSubmitting ? (
-              <span className="animate-pulse">Procesando...</span>
-            ) : (
               <>
-                <span>Confirmar y Enviar</span>
-                <FaWhatsapp className="text-xl" />
+                <FaSpinner className="animate-spin text-lg" />
+                <span>Procesando...</span>
               </>
+            ) : (
+              <span>Confirmar Pedido - {money(total)}</span>
             )}
           </button>
         </div>
+
       </div>
-      
-       <style>{`
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-up { animation: fadeUp 0.4s ease-out; }
-      `}</style>
     </div>
   );
 };

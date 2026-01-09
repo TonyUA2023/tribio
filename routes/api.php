@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\TemplateController;
 // Nuevos controladores para la lógica de Cafetería/Pedidos
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\ContentFeedController;
 
 /*
 |--------------------------------------------------------------------------
@@ -116,14 +117,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/templates/preview/{slug}', [TemplateController::class, 'preview']);
 
     // =========================================================
-    // NUEVAS RUTAS: GESTIÓN DE PRODUCTOS Y PEDIDOS (CAFETERÍA)
+    // GESTIÓN DE PRODUCTOS Y PEDIDOS (CAFETERÍA)
     // =========================================================
 
     // Productos (Carta Digital)
+    // Listar y Crear
     Route::get('/accounts/{accountId}/products', [ProductController::class, 'index']);
     Route::post('/accounts/{accountId}/products', [ProductController::class, 'store']);
-    // Usamos POST para update para manejar mejor multipart/form-data en algunos entornos
-    Route::post('/products/{id}', [ProductController::class, 'update']); 
+    
+    // Acciones sobre producto individual
+    // 'match' permite PUT normal o POST con _method:PUT (para imágenes)
+    Route::match(['put', 'post'], '/products/{id}', [ProductController::class, 'update']);
+    
     Route::delete('/products/{id}', [ProductController::class, 'destroy']);
     Route::post('/products/{id}/toggle-availability', [ProductController::class, 'toggleAvailability']);
 
@@ -150,3 +155,8 @@ Route::post('/posts/{post}/like', [PostController::class, 'toggleLike']);
 Route::post('/posts/{post}/share', [PostController::class, 'share']);
 Route::get('/posts/{post}/comments', [PostController::class, 'getComments']);
 Route::post('/posts/{post}/comments', [PostController::class, 'addComment']);
+
+// Content Feed API (TikTok-style)
+Route::get('/{accountSlug}/content/load-more', [ContentFeedController::class, 'loadMore']);
+Route::post('/content/posts/{postId}/like', [ContentFeedController::class, 'toggleLike']);
+Route::post('/content/posts/{postId}/view', [ContentFeedController::class, 'incrementView']);
