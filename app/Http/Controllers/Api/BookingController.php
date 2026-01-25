@@ -9,6 +9,7 @@ use App\Models\PendingEmail;
 use App\Services\BrevoSmsService;
 use App\Services\WhatsAppService;
 use App\Services\WhatsAppMessages\BookingMessages;
+use App\Services\CustomerService;
 use App\Exceptions\Custom\ProfileNotFoundException;
 use App\Exceptions\Custom\BookingConflictException;
 use App\Exceptions\Custom\ValidationException;
@@ -19,6 +20,10 @@ use Carbon\Carbon;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        protected CustomerService $customerService
+    ) {}
+
     /**
      * Crear una nueva reserva
      */
@@ -63,10 +68,26 @@ class BookingController extends Controller
                 throw new ProfileNotFoundException('El perfil solicitado no existe o fue eliminado.');
             }
 
+            // 🆕 Buscar o crear customer
+            $user = $request->user(); // null si es guest
+            $customer = $this->customerService->findOrCreateCustomer(
+                $profile->account,
+                [
+                    'name' => $request->client_name,
+                    'phone' => $request->client_phone,
+                    'email' => $request->client_email,
+                    'preferences' => [
+                        'notification_channel' => $request->notification_channel,
+                    ],
+                ],
+                $user
+            );
+
             // Crear la Reserva
             $booking = Booking::create([
                 'profile_id' => $request->profile_id,
                 'account_id' => $profile->account_id,
+                'customer_id' => $customer->id, // 🆕 Vincular customer
                 'client_name' => $request->client_name,
                 'client_phone' => $request->client_phone,
                 'client_email' => $request->client_email,
@@ -75,26 +96,19 @@ class BookingController extends Controller
                 'service' => $request->service,
                 'notes' => $request->notes,
                 'status' => 'pending',
-                'notification_channel' => $request->notification_channel, // 👈 Guardamos preferencia
+                'notification_channel' => $request->notification_channel,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
+
+            // 🆕 Actualizar timestamp de última actividad
+            $customer->touchLastBooking();
 
             // =================================================================
             // 🚀 SISTEMA DE NOTIFICACIONES MULTICANAL
             // =================================================================
             try {
-                // 1. Notificar al DUEÑO (Siempre por email si está configurado)
-                if ($profile->notification_email) {
-                    $emailHtml = view('emails.new-booking-notification', ['booking' => $booking])->render();
-                    PendingEmail::create([
-                        'to_email' => $profile->notification_email,
-                        'subject' => '📅 Nueva Reserva - ' . $booking->client_name,
-                        'body' => $emailHtml
-                    ]);
-                }
-
-                // 2. Notificar al CLIENTE (Según su preferencia)
+                // 1. Notificar al CLIENTE (Según su preferencia)
                 switch ($booking->notification_channel) {
                     case 'sms':
                         // Enviar SMS usando Brevo
@@ -106,9 +120,25 @@ class BookingController extends Controller
                         break;
 
                     case 'whatsapp':
-                        // Enviar mensaje de WhatsApp usando Meta API
-                        $message = BookingMessages::bookingCreated($booking);
-                        $whatsappService->sendTextMessage($booking->client_phone, $message);
+                        // Enviar plantilla booking_confirmation usando Meta API
+                        // Variables: {{1}}=nombre, {{2}}=negocio, {{3}}=fecha, {{4}}=hora, {{5}}=servicio
+                        $businessName = $profile->business_name ?? $profile->name ?? 'Nuestro negocio';
+                        $dateFormatted = Carbon::parse($booking->booking_date)->format('d \d\e F');
+                        $timeFormatted = Carbon::parse($booking->booking_time)->format('h:i A');
+                        $serviceName = $booking->service ?? 'Servicio';
+
+                        $whatsappService->sendTemplateMessage(
+                            $booking->client_phone,
+                            'booking_confirmation',
+                            [
+                                $booking->client_name,
+                                $businessName,
+                                $dateFormatted,
+                                $timeFormatted,
+                                $serviceName
+                            ],
+                            'es_PE'
+                        );
                         break;
 
                     case 'email':
@@ -122,6 +152,61 @@ class BookingController extends Controller
                                 'subject' => '✅ Reserva Recibida - ' . $businessName,
                                 'body' => $emailHtml
                             ]);
+                        }
+                        break;
+                }
+
+                // 2. Notificar al NEGOCIO/EMPRENDEDOR según el mismo canal
+                switch ($booking->notification_channel) {
+                    case 'whatsapp':
+                        // Notificar al negocio por WhatsApp usando account->whatsapp
+                        $account = $profile->account;
+                        $businessPhone = $account->whatsapp ?? null;
+
+                        if ($businessPhone && $whatsappService->isConfigured()) {
+                            $businessName = $profile->business_name ?? $profile->name ?? 'Emprendedor';
+                            $dateFormatted = Carbon::parse($booking->booking_date)->format('d \d\e F');
+                            $timeFormatted = Carbon::parse($booking->booking_time)->format('h:i A');
+                            $serviceName = $booking->service ?? 'Sin especificar';
+
+                            // Usar plantilla new_booking_business_v2
+                            // Parámetros: {{1}}=nombre negocio, {{2}}=fecha, {{3}}=hora, {{4}}=cliente, {{5}}=teléfono, {{6}}=servicio
+                            $sent = $whatsappService->sendTemplateMessage(
+                                $businessPhone,
+                                'new_booking_business_v2',
+                                [
+                                    $businessName,
+                                    $dateFormatted,
+                                    $timeFormatted,
+                                    $booking->client_name,
+                                    $booking->client_phone,
+                                    $serviceName
+                                ],
+                                'es_PE'
+                            );
+
+                            if ($sent) {
+                                Log::info("✅ WhatsApp Negocio (reserva) enviado a: {$businessPhone}");
+                            } else {
+                                Log::warning("⚠️ WhatsApp Negocio (reserva) falló");
+                            }
+                        } else {
+                            Log::warning("📱 Negocio sin WhatsApp configurado en Account (ID: {$account->id}) - Campo: " . ($account->whatsapp ?? 'NULL'));
+                        }
+                        break;
+
+                    case 'email':
+                    case 'sms':
+                    default:
+                        // Notificar al negocio por email
+                        if ($profile->notification_email) {
+                            $emailHtml = view('emails.new-booking-notification', ['booking' => $booking])->render();
+                            PendingEmail::create([
+                                'to_email' => $profile->notification_email,
+                                'subject' => '📅 Nueva Reserva - ' . $booking->client_name,
+                                'body' => $emailHtml
+                            ]);
+                            Log::info("✅ Email Negocio (reserva) enviado a: {$profile->notification_email}");
                         }
                         break;
                 }

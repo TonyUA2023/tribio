@@ -18,10 +18,11 @@ import { PremiumCarousel, CarouselImage } from '@/components/gallery/PremiumCaro
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { ReviewsList } from '@/components/reviews/ReviewsList';
 import { ScrollReveal } from '@/components/animated/ScrollReveal';
+import { normalizeSocialLinks } from '@/utils/socialLinks';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { StoryCircle } from '@/components/stories/StoryCircle';
 import PostGridModal from '@/components/posts/PostGridModal';
-import { ContentButton } from '@/components/content/ContentButton';
+import { ShareButton } from '@/components/ShareButton';
 
 // --- INTERFACES (MANTENIDAS) ---
 export interface ModernMinimalConfig {
@@ -193,6 +194,9 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
     accentColor
   } = finalConfig;
 
+  // Normalize social links
+  const normalizedLinks = useMemo(() => normalizeSocialLinks(socialLinks), [socialLinks]);
+
   // Estados y Hooks visuales
   const [isLoading, setIsLoading] = useState(true);
   const loadingScreenUrl = loadingImage ? resolveMediaUrl(loadingImage) : null;
@@ -214,6 +218,7 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
     services,
     accentColor: primaryColor,
     socialLinks,
+    language: 'es' as const,
   };
 
   const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -339,24 +344,50 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
                   <span>Síguenos</span>
                 </h2>
                 <div className="space-y-3">
-                  {socialLinks.instagram && (
+                  {normalizedLinks.instagram && (
                     <PremiumSocialButton
-                      href={socialLinks.instagram}
+                      href={normalizedLinks.instagram}
                       icon={<FaInstagram size={24} />}
                       title={`@${accountSlug}`}
                       subtitle="Portafolio en Instagram"
                       brandColor="from-purple-600 via-pink-600 to-orange-500"
                     />
                   )}
-                  {socialLinks.tiktok && (
+                  {normalizedLinks.tiktok && (
                     <PremiumSocialButton
-                      href={socialLinks.tiktok}
+                      href={normalizedLinks.tiktok}
                       icon={<FaTiktok size={22} />}
                       title={`@${accountSlug}`}
                       subtitle="Tutoriales y Cortes"
                       brandColor="from-cyan-500 via-black to-red-500"
                     />
                   )}
+                  <div
+                    className="group relative flex items-center gap-4 p-4 rounded-xl overflow-hidden
+                      bg-white/5 border border-white/5 backdrop-blur-md
+                      hover:border-white/10 transition-all duration-500 hover:-translate-y-1 cursor-pointer"
+                  >
+                    <div className="relative z-10 bg-gradient-to-br from-gray-500 to-gray-600 p-4 rounded-xl">
+                      <ShareButton
+                        url={window.location.href}
+                        title={businessName}
+                        text={businessBio || `Conoce ${businessName}`}
+                        iconSize={24}
+                        color="#fff"
+                      />
+                    </div>
+                    <div className="relative z-10 flex flex-col justify-center flex-1">
+                      <span className="text-gray-400 text-xs uppercase tracking-wider mb-1">
+                        Comparte este perfil
+                      </span>
+                      <span className="text-gray-100 font-bold text-base leading-tight group-hover:text-amber-400 transition-colors">
+                        Compartir
+                      </span>
+                    </div>
+                    <div className="relative z-10 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                      <FaChevronRight className="text-white/50" />
+                    </div>
+                  </div>
                 </div>
               </section>
             </ScrollReveal>
@@ -481,9 +512,9 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
           <div className="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent pointer-events-none z-30 md:absolute md:rounded-b-[40px]" />
 
           {/* Botón Flotante de WhatsApp */}
-          {socialLinks.whatsapp && (
+          {normalizedLinks.whatsapp && (
             <a
-              href={socialLinks.whatsapp}
+              href={normalizedLinks.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
               className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center
@@ -495,12 +526,6 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
             </a>
           )}
 
-          {/* Botón de Contenido Multimedia */}
-          <ContentButton
-            accountSlug={accountSlug}
-            accentColor={primaryGold}
-            position="left"
-          />
 
           {/* Widget de Reserva (Booking) */}
           <div className="fixed bottom-6 left-4 right-4 z-50 md:absolute md:bottom-6 md:w-[calc(100%-32px)]">

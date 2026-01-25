@@ -21,10 +21,12 @@ class Order extends Model
 
     protected $fillable = [
         'account_id',
+        'customer_id',
         'order_number',
         'customer_name',
         'customer_phone',
         'customer_email',
+        'notification_channel',
         'delivery_address',
         'notes',
         'subtotal',
@@ -35,7 +37,6 @@ class Order extends Model
         'payment_status',
         'confirmed_at',
         'delivered_at',
-        // 'ready_at', // Sugerencia: Podrías agregar esto en una futura migración para medir tiempos de cocina
     ];
 
     protected $casts = [
@@ -69,9 +70,38 @@ class Order extends Model
         return $this->belongsTo(Account::class);
     }
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Obtener el nombre del cliente (con fallback a campos legacy)
+     */
+    public function getCustomerName(): string
+    {
+        return $this->customer?->name ?? $this->customer_name;
+    }
+
+    /**
+     * Obtener el teléfono del cliente (con fallback)
+     */
+    public function getCustomerPhone(): string
+    {
+        return $this->customer?->phone ?? $this->customer_phone;
+    }
+
+    /**
+     * Obtener el email del cliente (con fallback)
+     */
+    public function getCustomerEmail(): ?string
+    {
+        return $this->customer?->email ?? $this->customer_email;
     }
 
     /**

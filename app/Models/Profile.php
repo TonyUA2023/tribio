@@ -24,6 +24,7 @@ class Profile extends Model
         'template_id',
         'custom_view_path',
         'data',
+        'template_config',
     ];
 
     /**
@@ -33,6 +34,7 @@ class Profile extends Model
      */
     protected $casts = [
         'data' => 'array',
+        'template_config' => 'array',
     ];
 
     /**

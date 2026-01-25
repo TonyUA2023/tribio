@@ -1,25 +1,25 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Api\BookingController;
-use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\CronController;
 use App\Http\Controllers\Api\StoryController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AccountProfileController;
 use App\Http\Controllers\Api\GalleryController;
 use App\Http\Controllers\Api\StoriesController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingsController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\ReviewsController;
 use App\Http\Controllers\Api\AnalyticsController;
-use App\Http\Controllers\Api\PostController; 
-use App\Http\Controllers\Api\PostsController; 
+use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\PostsController;
 use App\Http\Controllers\Api\TemplateController;
-// Nuevos controladores para la lógica de Cafetería/Pedidos
+use App\Http\Controllers\Api\TemplateConfigController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
-use App\Http\Controllers\ContentFeedController;
+use App\Http\Controllers\Api\WhatsAppWebhookController;
+use App\Http\Controllers\Api\BusinessDirectoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -27,18 +27,29 @@ use App\Http\Controllers\ContentFeedController;
 |--------------------------------------------------------------------------
 */
 
-// Rutas públicas para reservas
-Route::post('/bookings', [BookingController::class, 'store']);
-Route::get('/bookings/occupied-slots', [BookingController::class, 'getOccupiedSlots']);
-
-// Rutas públicas para reseñas
-Route::post('/reviews', [ReviewController::class, 'store']);
-Route::get('/reviews', [ReviewController::class, 'index']);
+// Directorio de Negocios (Público)
+Route::get('/directory/businesses', [BusinessDirectoryController::class, 'index']);
+Route::get('/directory/categories', [BusinessDirectoryController::class, 'categories']);
+Route::get('/directory/stats', [BusinessDirectoryController::class, 'stats']);
+Route::get('/directory/check-slug', [BusinessDirectoryController::class, 'checkSlug']);
 
 // Cron jobs
 Route::get('/cron/send-emails', [CronController::class, 'sendEmails']);
 
-// Auth
+/*
+|--------------------------------------------------------------------------
+| WhatsApp Business API Webhook
+|--------------------------------------------------------------------------
+| Endpoint para recibir webhooks de Meta (WhatsApp Business API)
+| GET  - Verificación del webhook (Meta envía hub.verify_token)
+| POST - Recepción de mensajes y estados
+|
+| URL para configurar en Meta: https://tu-dominio.com/api/whatsapp/webhook
+*/
+Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
+Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
+
+// Auth (Business Owners)
 Route::post('/auth/login', [AuthController::class, 'login']);
 
 // Plantillas públicas (Catálogo)
@@ -53,7 +64,7 @@ Route::get('/templates/{id}', [TemplateController::class, 'show']);
 */
 
 Route::middleware('auth:sanctum')->group(function () {
-    
+
     // Auth & Sesión
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
@@ -156,7 +167,17 @@ Route::post('/posts/{post}/share', [PostController::class, 'share']);
 Route::get('/posts/{post}/comments', [PostController::class, 'getComments']);
 Route::post('/posts/{post}/comments', [PostController::class, 'addComment']);
 
-// Content Feed API (TikTok-style)
-Route::get('/{accountSlug}/content/load-more', [ContentFeedController::class, 'loadMore']);
-Route::post('/content/posts/{postId}/like', [ContentFeedController::class, 'toggleLike']);
-Route::post('/content/posts/{postId}/view', [ContentFeedController::class, 'incrementView']);
+// Public Booking API (for customers)
+Route::post('/bookings', [BookingController::class, 'store']);
+Route::get('/bookings', [BookingController::class, 'index']);
+Route::put('/bookings/{booking}/status', [BookingController::class, 'updateStatus']);
+Route::get('/bookings/occupied-slots', [BookingController::class, 'getOccupiedSlots']);
+
+// Public Review API (for customers)
+Route::post('/reviews', [ReviewController::class, 'store']);
+Route::get('/reviews', [ReviewController::class, 'index']);
+
+// Template Configuration API (Public - for mobile app)
+Route::get('/{accountSlug}/template-config', [TemplateConfigController::class, 'show']);
+Route::put('/{accountSlug}/template-config', [TemplateConfigController::class, 'update']);
+Route::delete('/{accountSlug}/template-config', [TemplateConfigController::class, 'reset']);

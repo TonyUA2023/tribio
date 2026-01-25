@@ -18,11 +18,29 @@ import { PremiumCarousel, CarouselImage } from '@/components/gallery/PremiumCaro
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { ReviewsList } from '@/components/reviews/ReviewsList';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
-import { ContentButton } from '@/components/content/ContentButton';
 import PostGridModal from '@/components/posts/PostGridModal';
 import { ScrollReveal } from '@/components/animated/ScrollReveal';
+import { normalizeSocialLinks } from '@/utils/socialLinks';
+import { ShareButton } from '@/components/ShareButton';
 
 // --- INTERFACES ---
+export interface TemplateConfig {
+  language?: 'es' | 'en';
+}
+
+interface Translations {
+  requestInfo: string;
+}
+
+const translations: Record<'es' | 'en', Translations> = {
+  es: {
+    requestInfo: 'Solicitar más información',
+  },
+  en: {
+    requestInfo: 'Request more info',
+  },
+};
+
 export interface CarWashConfig {
   primaryColor?: string;
   backgroundColor?: string;
@@ -45,12 +63,14 @@ export interface CarWashConfig {
   gallery?: CarouselImage[];
   profileId: number;
   accountSlug: string;
+  templateConfig?: TemplateConfig;
 }
 
 interface CarWashTemplateProps {
   config: CarWashConfig;
   customizations?: any;
   activeModules?: string[];
+  templateConfig?: TemplateConfig;
 }
 
 // --- UTIL ---
@@ -68,6 +88,7 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
   config,
   customizations,
   activeModules = [],
+  templateConfig,
 }) => {
   const finalConfig = useMemo(
     () => ({
@@ -80,6 +101,15 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
     }),
     [config, customizations],
   );
+
+  // Configuración de idioma
+  const tConfig: TemplateConfig = useMemo(() => ({
+    language: 'es',
+    ...templateConfig,
+  }), [templateConfig]);
+
+  // Obtener textos según idioma
+  const t = translations[tConfig.language || 'es'];
 
   const {
     primaryColor,
@@ -100,6 +130,9 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
     accountSlug,
   } = finalConfig;
 
+  // Normalize social links
+  const normalizedLinks = useMemo(() => normalizeSocialLinks(socialLinks), [socialLinks]);
+
   const [isLoading, setIsLoading] = useState(true);
 
   const loadingScreenUrl = loadingImage ? resolveMediaUrl(loadingImage) : null;
@@ -112,6 +145,7 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
     services,
     accentColor: primaryColor || '#0ea5e9',
     socialLinks,
+    language: tConfig.language,
   };
 
   useEffect(() => {
@@ -193,19 +227,19 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
                 </div>
 
                 <ScrollReveal>
-                  <p className="text-[10px] tracking-[0.3em] uppercase text-cyan-300 font-semibold mb-2 text-center md:text-left">
+                  <p className="text-xs tracking-[0.3em] uppercase text-cyan-300 font-semibold mb-2 text-center md:text-left">
                     Professional Wash & Detailing
                   </p>
-                  <h1 className="text-xl md:text-3xl font-black tracking-tight text-center md:text-left">
+                  <h1 className="text-2xl md:text-4xl font-black tracking-tight text-center md:text-left">
                     {businessName || 'Car Detailing'}
                   </h1>
                   {businessTitle && (
-                    <p className="mt-1 text-[11px] md:text-xs text-cyan-200/80 text-center md:text-left">
+                    <p className="mt-1 text-sm md:text-base text-cyan-200/80 text-center md:text-left">
                       {businessTitle}
                     </p>
                   )}
                   {businessBio && (
-                    <p className="mt-4 text-xs md:text-sm text-slate-300 leading-relaxed text-center md:text-left">
+                    <p className="mt-4 text-sm md:text-base text-slate-300 leading-relaxed text-center md:text-left">
                       {businessBio}
                     </p>
                   )}
@@ -214,46 +248,55 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
                 {/* Redes sociales */}
                 <ScrollReveal>
                   <div className="flex justify-center md:justify-start gap-3 mt-5">
-                    {socialLinks.whatsapp && (
+                    {normalizedLinks.whatsapp && (
                       <a
-                        href={`https://wa.me/${socialLinks.whatsapp}`}
+                        href={normalizedLinks.whatsapp}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2.5 rounded-full bg-emerald-500/10 border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all shadow-md"
+                        className="p-3 rounded-full bg-emerald-500/10 border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all shadow-md"
                       >
-                        <FaWhatsapp size={16} />
+                        <FaWhatsapp size={20} />
                       </a>
                     )}
-                    {socialLinks.instagram && (
+                    {normalizedLinks.instagram && (
                       <a
-                        href={socialLinks.instagram}
+                        href={normalizedLinks.instagram}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2.5 rounded-full bg-pink-500/10 border border-pink-400/40 text-pink-300 hover:bg-pink-500 hover:text-white transition-all shadow-md"
+                        className="p-3 rounded-full bg-pink-500/10 border border-pink-400/40 text-pink-300 hover:bg-pink-500 hover:text-white transition-all shadow-md"
                       >
-                        <FaInstagram size={16} />
+                        <FaInstagram size={20} />
                       </a>
                     )}
-                    {socialLinks.tiktok && (
+                    {normalizedLinks.tiktok && (
                       <a
-                        href={socialLinks.tiktok}
+                        href={normalizedLinks.tiktok}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2.5 rounded-full bg-white/5 border border-white/30 text-white hover:bg-white hover:text-black transition-all shadow-md"
+                        className="p-3 rounded-full bg-white/5 border border-white/30 text-white hover:bg-white hover:text-black transition-all shadow-md"
                       >
-                        <FaTiktok size={16} />
+                        <FaTiktok size={20} />
                       </a>
                     )}
-                    {socialLinks.facebook && (
+                    {normalizedLinks.facebook && (
                       <a
-                        href={socialLinks.facebook}
+                        href={normalizedLinks.facebook}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2.5 rounded-full bg-blue-500/10 border border-blue-400/40 text-blue-300 hover:bg-blue-500 hover:text-white transition-all shadow-md"
+                        className="p-3 rounded-full bg-blue-500/10 border border-blue-400/40 text-blue-300 hover:bg-blue-500 hover:text-white transition-all shadow-md"
                       >
-                        <FaFacebook size={16} />
+                        <FaFacebook size={20} />
                       </a>
                     )}
+                    <div className="p-3 rounded-full bg-gray-500/10 border border-gray-400/40 text-gray-300 hover:bg-gray-500 hover:text-white transition-all shadow-md cursor-pointer">
+                      <ShareButton
+                        url={window.location.href}
+                        title={businessName}
+                        text={businessBio || `Conoce ${businessName}`}
+                        iconSize={20}
+                        color="currentColor"
+                      />
+                    </div>
                   </div>
                 </ScrollReveal>
               </div>
@@ -264,25 +307,25 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
           {(schedule || address) && (
             <section className="px-4 mt-2 md:mt-0">
               <ScrollReveal>
-                <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-600/40 rounded-2xl p-4 flex justify-between divide-x divide-slate-700/70 text-xs md:text-[13px]">
+                <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-600/40 rounded-2xl p-5 flex justify-between divide-x divide-slate-700/70 text-sm md:text-base">
                   {schedule && (
-                    <div className="flex-1 flex flex-col items-center px-2 text-center">
-                      <FaClock className="mb-1 text-cyan-300" />
-                      <span className="text-[10px] uppercase font-semibold tracking-[0.18em] text-slate-400">
+                    <div className="flex-1 flex flex-col items-center px-3 text-center">
+                      <FaClock className="mb-2 text-cyan-300 text-xl" />
+                      <span className="text-xs uppercase font-semibold tracking-[0.18em] text-slate-400">
                         Hours
                       </span>
-                      <span className="mt-1 text-slate-100 leading-snug">
+                      <span className="mt-1.5 text-slate-100 leading-snug">
                         {schedule}
                       </span>
                     </div>
                   )}
                   {address && (
-                    <div className="flex-1 flex flex-col items-center px-2 text-center">
-                      <FaMapMarkerAlt className="mb-1 text-amber-300" />
-                      <span className="text-[10px] uppercase font-semibold tracking-[0.18em] text-slate-400">
+                    <div className="flex-1 flex flex-col items-center px-3 text-center">
+                      <FaMapMarkerAlt className="mb-2 text-amber-300 text-xl" />
+                      <span className="text-xs uppercase font-semibold tracking-[0.18em] text-slate-400">
                         Location
                       </span>
-                      <span className="mt-1 text-slate-100 leading-snug line-clamp-2">
+                      <span className="mt-1.5 text-slate-100 leading-snug line-clamp-2">
                         {address}
                       </span>
                     </div>
@@ -298,15 +341,15 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
             <ScrollReveal>
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-[13px] md:text-sm font-semibold flex items-center gap-2 text-slate-100">
+                  <h2 className="text-base md:text-lg font-semibold flex items-center gap-2 text-slate-100">
                     <span
                       className="w-1 h-5 rounded-full"
                       style={{ backgroundImage: `linear-gradient(180deg, ${primary}, ${accent})` }}
                     />
                     Posts
                   </h2>
-                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                    <FaImages size={10} />
+                  <div className="flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-slate-400">
+                    <FaImages size={12} />
                     <span>See more</span>
                   </div>
                 </div>
@@ -321,7 +364,7 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
               <ScrollReveal>
                 <section>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-[13px] md:text-sm font-semibold flex items-center gap-2 text-slate-100">
+                    <h2 className="text-base md:text-lg font-semibold flex items-center gap-2 text-slate-100">
                       <span
                         className="w-1 h-5 rounded-full"
                         style={{ backgroundImage: `linear-gradient(180deg, ${accent}, ${primary})` }}
@@ -350,17 +393,17 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
                       className="w-1 h-5 rounded-full"
                       style={{ backgroundColor: primary }}
                     />
-                    <h2 className="text-[13px] md:text-sm font-semibold text-slate-100">
+                    <h2 className="text-base md:text-lg font-semibold text-slate-100">
                       Detailing Services
                     </h2>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[11px] md:text-xs">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm md:text-base">
                     {services.map((service, i) => (
                       <div
                         key={`${service}-${i}`}
-                        className="bg-slate-900/80 border border-slate-700/80 rounded-xl px-3 py-3 flex items-center gap-2 hover:border-cyan-400/70 hover:shadow-[0_0_25px_rgba(56,189,248,0.35)] transition-all"
+                        className="bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-4 flex items-center gap-3 hover:border-cyan-400/70 hover:shadow-[0_0_25px_rgba(56,189,248,0.35)] transition-all"
                       >
-                        <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-cyan-300/80 text-xs">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-cyan-300/80 text-sm">
                           <FaCar />
                         </div>
                         <span className="line-clamp-2 text-slate-100">
@@ -377,8 +420,8 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
             <ScrollReveal>
               <section>
                 <div className="flex items-center gap-2 mb-2">
-                  <FaStar className="text-yellow-400" />
-                  <h2 className="text-[13px] md:text-sm font-semibold text-slate-100">
+                  <FaStar className="text-yellow-400 text-lg" />
+                  <h2 className="text-base md:text-lg font-semibold text-slate-100">
                     Customer Reviews
                   </h2>
                 </div>
@@ -408,18 +451,16 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
             </div>
           )}
 
-          {/* Botón flotante lateral para contenido extra */}
-          <ContentButton accountSlug={accountSlug} accentColor={primary} position="left" />
 
-          {/* Botón flotante WhatsApp directo */}
-          {socialLinks.whatsapp && (
+          {/* Botón flotante WhatsApp */}
+          {normalizedLinks.whatsapp && (
             <a
-              href={`https://wa.me/${socialLinks.whatsapp}`}
+              href={normalizedLinks.whatsapp}
               target="_blank"
               rel="noreferrer"
-              className="fixed bottom-24 right-4 w-11 h-11 md:w-12 md:h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/40 border-2 border-emerald-300/60 z-30 md:bottom-28"
+              className="fixed bottom-24 right-4 w-16 h-16 md:w-[70px] md:h-[70px] rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center text-white shadow-xl shadow-emerald-500/40 border-2 border-emerald-300/60 z-30 md:bottom-28 transition-all duration-300 hover:scale-110 active:scale-95"
             >
-              <FaWhatsapp size={20} />
+              <FaWhatsapp size={32} className="md:text-[36px]" />
             </a>
           )}
         </div>

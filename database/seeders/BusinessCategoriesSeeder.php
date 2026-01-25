@@ -268,6 +268,17 @@ class BusinessCategoriesSeeder extends Seeder
                         'description' => 'Tutorías y clases particulares',
                         'default_modules' => ['profile', 'bookings', 'services', 'contact'],
                     ],
+                    [
+                        'slug' => 'academy',
+                        'name' => 'Academia',
+                        'icon' => 'school',
+                        'description' => 'Academias e instituciones educativas',
+                        'default_modules' => ['profile', 'services', 'bookings', 'gallery', 'contact', 'reviews'],
+                        'default_config' => [
+                            'bookings' => ['slotDuration' => 60, 'bufferTime' => 15],
+                            'theme' => ['layout' => 'modern', 'primaryColor' => '#3b82f6']
+                        ],
+                    ],
                 ]
             ],
 

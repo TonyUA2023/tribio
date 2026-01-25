@@ -26,10 +26,11 @@ import { PremiumCarousel, CarouselImage } from '@/components/gallery/PremiumCaro
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { ReviewsList } from '@/components/reviews/ReviewsList';
 import { ScrollReveal } from '@/components/animated/ScrollReveal';
+import { normalizeSocialLinks } from '@/utils/socialLinks';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { StoryCircle } from '@/components/stories/StoryCircle';
 import PostGridModal from '@/components/posts/PostGridModal';
-import { ContentButton } from '@/components/content/ContentButton';
+import { ShareButton } from '@/components/ShareButton';
 
 // --- INTERFACES ---
 export interface Product {
@@ -309,6 +310,9 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
     accountSlug
   } = finalConfig;
 
+  // Normalize social links
+  const normalizedLinks = useMemo(() => normalizeSocialLinks(socialLinks), [socialLinks]);
+
   // Estados
   const [isLoading, setIsLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -411,7 +415,7 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
         `*💰 Total: ${money(cartTotal)}*\n\n` +
         `Quedo atento a su confirmación para realizar el pago (Yape/Plin).`;
 
-      const whatsappUrl = `https://wa.me/${socialLinks.whatsapp?.replace(/\D/g, '') || ''}?text=${encodeURIComponent(message)}`;
+      const whatsappUrl = normalizedLinks.whatsapp ? `${normalizedLinks.whatsapp}?text=${encodeURIComponent(message)}` : '';
       
       // 4. Limpiar y Redirigir
       setCart([]);
@@ -573,9 +577,35 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
                         Síguenos
                     </h3>
                     <div className="space-y-2">
-                        {socialLinks.instagram && <PremiumSocialButton href={socialLinks.instagram} icon={<FaInstagram size={20}/>} title="Instagram" subtitle="Fotos y Novedades" brandColor="from-purple-600 via-pink-600 to-orange-500" />}
-                        {socialLinks.tiktok && <PremiumSocialButton href={socialLinks.tiktok} icon={<FaTiktok size={20}/>} title="TikTok" subtitle="Videos Virales" brandColor="from-black to-gray-800" />}
-                        {socialLinks.facebook && <PremiumSocialButton href={socialLinks.facebook} icon={<FaFacebook size={20}/>} title="Facebook" subtitle="Comunidad" brandColor="from-blue-600 to-blue-800" />}
+                        {normalizedLinks.instagram && <PremiumSocialButton href={normalizedLinks.instagram} icon={<FaInstagram size={20}/>} title="Instagram" subtitle="Fotos y Novedades" brandColor="from-purple-600 via-pink-600 to-orange-500" />}
+                        {normalizedLinks.tiktok && <PremiumSocialButton href={normalizedLinks.tiktok} icon={<FaTiktok size={20}/>} title="TikTok" subtitle="Videos Virales" brandColor="from-black to-gray-800" />}
+                        {normalizedLinks.facebook && <PremiumSocialButton href={normalizedLinks.facebook} icon={<FaFacebook size={20}/>} title="Facebook" subtitle="Comunidad" brandColor="from-blue-600 to-blue-800" />}
+                        <div
+                          className="group relative flex items-center gap-4 p-4 rounded-xl overflow-hidden
+                            bg-white/5 border border-white/5 backdrop-blur-md
+                            hover:border-white/10 transition-all duration-500 hover:-translate-y-1 cursor-pointer"
+                        >
+                          <div className="relative z-10 bg-gradient-to-br from-gray-500 to-gray-600 p-4 rounded-xl">
+                            <ShareButton
+                              url={window.location.href}
+                              title={businessName}
+                              text={businessBio || `Conoce ${businessName}`}
+                              iconSize={20}
+                              color="#fff"
+                            />
+                          </div>
+                          <div className="relative z-10 flex flex-col justify-center flex-1">
+                            <span className="text-gray-400 text-xs uppercase tracking-wider mb-1">
+                              Comparte este perfil
+                            </span>
+                            <span className="text-gray-100 font-bold text-base leading-tight group-hover:text-amber-400 transition-colors">
+                              Compartir
+                            </span>
+                          </div>
+                          <div className="relative z-10 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                            <FaChevronRight className="text-white/50" />
+                          </div>
+                        </div>
                     </div>
                 </section>
 
@@ -602,12 +632,6 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
             </div>
           </main>
 
-          {/* --- CONTENT BUTTON --- */}
-          <ContentButton
-            accountSlug={accountSlug}
-            accentColor={primaryColor}
-            position="left"
-          />
 
           {/* --- FLOATING CART BUTTON --- */}
           {cart.length > 0 && (

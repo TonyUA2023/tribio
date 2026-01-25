@@ -8,7 +8,6 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Services\WhatsAppService;
 use App\Services\BrevoSmsService;
-use App\Services\WhatsAppMessages\OrderMessages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,6 +20,13 @@ class PublicCheckoutController extends Controller
 {
     public function store(Request $request, $accountSlug)
     {
+        // DEBUG: Ver qué llega en el request
+        Log::info("📦 Request Checkout recibido", [
+            'all_data' => $request->all(),
+            'notification_channel' => $request->input('notification_channel'),
+            'account_slug' => $accountSlug
+        ]);
+
         // 1. Validar Cuenta
         $account = Account::where('slug', $accountSlug)->firstOrFail();
 
@@ -32,6 +38,7 @@ class PublicCheckoutController extends Controller
             'customer_name'  => 'required|string|max:191',
             'customer_phone' => 'required|string|max:50',
             'customer_email' => 'nullable|email|max:191',
+            'delivery_address' => 'required|string|max:500',
             'notification_channel' => 'required|in:email,sms,whatsapp',
             'items'          => 'required|array|min:1',
             'items.*.id'     => 'required|exists:products,id',
@@ -73,7 +80,7 @@ class PublicCheckoutController extends Controller
                     'customer_phone'  => $validated['customer_phone'],
                     'customer_email'  => $validated['customer_email'] ?? null,
                     'notification_channel' => $validated['notification_channel'],
-                    'delivery_address'=> 'Pendiente',
+                    'delivery_address'=> $validated['delivery_address'],
                     'total'           => $total,
                     'subtotal'        => $total,
                     'delivery_fee'    => 0,
@@ -88,7 +95,11 @@ class PublicCheckoutController extends Controller
                 // SISTEMA DE NOTIFICACIONES MULTICANAL
                 // ====================================================
 
-                Log::info("🚀 Pedido #{$order->order_number} creado. Iniciando notificaciones...");
+                Log::info("🚀 Pedido #{$order->order_number} creado. Iniciando notificaciones...", [
+                    'notification_channel' => $order->notification_channel,
+                    'customer_phone' => $order->customer_phone,
+                    'customer_email' => $order->customer_email
+                ]);
 
                 // A) Notificar al CLIENTE según su canal preferido
                 try {
@@ -110,9 +121,34 @@ class PublicCheckoutController extends Controller
 
                         case 'whatsapp':
                             if ($order->customer_phone) {
-                                $message = OrderMessages::orderCreated($order);
-                                $whatsappService->sendTextMessage($order->customer_phone, $message);
-                                Log::info("✅ WhatsApp Cliente enviado a: {$order->customer_phone}");
+                                // Verificar si WhatsApp está configurado
+                                if (!$whatsappService->isConfigured()) {
+                                    Log::warning("⚠️ WhatsApp API NO configurada. Verifica WHATSAPP_ACCESS_TOKEN y WHATSAPP_PHONE_NUMBER_ID en .env");
+                                    break;
+                                }
+
+                                // Obtener nombre del negocio
+                                $businessName = $profile->business_name ?? $account->name ?? 'Nuestro negocio';
+
+                                // Enviar plantilla order_confirmation con parámetros
+                                // Variables: {{1}}=nombre, {{2}}=negocio, {{3}}=pedido, {{4}}=total
+                                $sent = $whatsappService->sendTemplateMessage(
+                                    $order->customer_phone,
+                                    'order_confirmation',
+                                    [
+                                        $order->customer_name,
+                                        $businessName,
+                                        $order->order_number,
+                                        number_format($order->total, 2)
+                                    ],
+                                    'es_PE'
+                                );
+
+                                if ($sent) {
+                                    Log::info("✅ WhatsApp Cliente enviado a: {$order->customer_phone}");
+                                } else {
+                                    Log::error("❌ WhatsApp falló al enviar a: {$order->customer_phone}");
+                                }
                             }
                             break;
                     }
@@ -120,26 +156,73 @@ class PublicCheckoutController extends Controller
                     Log::error("❌ Error notificando cliente: " . $e->getMessage());
                 }
 
-                // B) Negocio (Buscando en Profile)
-                $businessEmail = null;
+                // B) Notificar al NEGOCIO según el mismo canal del cliente
+                try {
+                    switch ($order->notification_channel) {
+                        case 'whatsapp':
+                            // Intentar notificar al negocio por WhatsApp usando account->whatsapp
+                            $businessPhone = $account->whatsapp ?? null;
 
-                if ($profile && !empty($profile->notification_email)) {
-                    $businessEmail = $profile->notification_email;
-                    Log::info("📧 Email de negocio encontrado en Profile: {$businessEmail}");
-                } elseif (!empty($account->email)) {
-                    $businessEmail = $account->email;
-                    Log::info("📧 Email de negocio encontrado en Account: {$businessEmail}");
-                }
+                            if ($businessPhone && $whatsappService->isConfigured()) {
+                                $businessName = $profile->business_name ?? $account->name ?? 'Emprendedor';
 
-                if ($businessEmail) {
-                    try {
-                        Mail::to($businessEmail)->send(new NewOrderNotification($order));
-                        Log::info("✅ Email Negocio enviado correctamente.");
-                    } catch (\Exception $e) {
-                        Log::error("❌ Error mail negocio: " . $e->getMessage());
+                                // Construir detalle de productos en UNA SOLA LÍNEA (WhatsApp no acepta \n en variables)
+                                $productsItems = [];
+                                foreach ($order->items as $item) {
+                                    $productsItems[] = "{$item->quantity}x {$item->product_name} S/{$item->subtotal}";
+                                }
+                                // Productos separados por comas + total al final
+                                $productsText = implode(", ", $productsItems) . " | TOTAL: S/" . number_format($order->total, 2);
+
+                                // Usar plantilla new_order_business con productos en línea
+                                // Parámetros: {{1}}=negocio, {{2}}=pedido, {{3}}=cliente, {{4}}=teléfono, {{5}}=productos+total, {{6}}=dirección
+                                $sent = $whatsappService->sendTemplateMessage(
+                                    $businessPhone,
+                                    'new_order_business',
+                                    [
+                                        $businessName,
+                                        $order->order_number,
+                                        $order->customer_name,
+                                        $order->customer_phone,
+                                        $productsText,
+                                        $order->delivery_address
+                                    ],
+                                    'es_PE'
+                                );
+
+                                if ($sent) {
+                                    Log::info("✅ WhatsApp Negocio enviado a: {$businessPhone}");
+                                } else {
+                                    Log::warning("⚠️ WhatsApp Negocio falló, NO se enviará email alternativo");
+                                }
+                            } else {
+                                Log::warning("📱 Negocio sin WhatsApp configurado en Account (ID: {$account->id}) - Campo: " . ($account->whatsapp ?? 'NULL'));
+                            }
+                            break;
+
+                        case 'email':
+                        case 'sms':
+                            // Notificar al negocio por email
+                            $businessEmail = null;
+
+                            if ($profile && !empty($profile->notification_email)) {
+                                $businessEmail = $profile->notification_email;
+                                Log::info("📧 Email de negocio encontrado en Profile: {$businessEmail}");
+                            } elseif (!empty($account->email)) {
+                                $businessEmail = $account->email;
+                                Log::info("📧 Email de negocio encontrado en Account: {$businessEmail}");
+                            }
+
+                            if ($businessEmail) {
+                                Mail::to($businessEmail)->send(new NewOrderNotification($order));
+                                Log::info("✅ Email Negocio enviado correctamente.");
+                            } else {
+                                Log::warning("⚠️ NO se encontró email para notificar al negocio (Account ID: {$account->id})");
+                            }
+                            break;
                     }
-                } else {
-                    Log::warning("⚠️ NO se encontró email para notificar al negocio (Account ID: {$account->id})");
+                } catch (\Exception $e) {
+                    Log::error("❌ Error notificando negocio: " . $e->getMessage());
                 }
 
                 return response()->json([

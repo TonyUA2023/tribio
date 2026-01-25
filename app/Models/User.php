@@ -22,7 +22,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role'
+        'role',
+        'google_id',
+        'avatar',
     ];
 
     /**
@@ -57,6 +59,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Define la relación: Un Usuario puede tener un Customer (si es customer).
+     */
+    public function customer(): HasOne
+    {
+        return $this->hasOne(Customer::class);
+    }
+
+    /**
      * Verifica si el usuario es super admin.
      */
     public function isSuperAdmin(): bool
@@ -78,6 +88,14 @@ class User extends Authenticatable
     public function isClient(): bool
     {
         return $this->role === 'client';
+    }
+
+    /**
+     * Verifica si el usuario es customer (usuario normal).
+     */
+    public function isCustomer(): bool
+    {
+        return $this->role === 'customer';
     }
 
     /**

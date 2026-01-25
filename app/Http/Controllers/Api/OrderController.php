@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Services\BrevoSmsService;
 use App\Services\WhatsAppService;
 use App\Services\WhatsAppMessages\OrderMessages;
+use App\Services\CustomerService;
 use App\Mail\GenericEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,10 @@ use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
+    public function __construct(
+        protected CustomerService $customerService
+    ) {}
+
     /**
      * Listar pedidos de una cuenta.
      */
@@ -104,6 +109,7 @@ class OrderController extends Controller
 
         // --- 🚀 LÓGICA DE NOTIFICACIÓN INTELIGENTE ---
 
+        // 1. Notificar al CLIENTE sobre el cambio de estado
         try {
             switch ($order->notification_channel) {
                 case 'sms':
@@ -111,22 +117,44 @@ class OrderController extends Controller
                     $messageContent = $this->getNotificationMessage($order, $newStatus);
                     if ($messageContent) {
                         $smsService->sendSms($order->customer_phone, $messageContent);
+                        Log::info("✅ SMS Cliente enviado para estado: {$newStatus}");
                     }
                     break;
 
                 case 'whatsapp':
-                    // WhatsApp: Mensaje completo y formateado usando Meta API
-                    $message = match($newStatus) {
-                        'preparing' => OrderMessages::orderPreparing($order),
-                        'ready' => OrderMessages::orderReady($order),
-                        'delivered' => OrderMessages::orderDelivered($order),
-                        'cancelled' => OrderMessages::orderCancelled($order),
-                        default => null
-                    };
+                    // WhatsApp: Usar plantillas aprobadas por Meta
+                    $businessName = $order->account->name ?? 'Nuestro negocio';
 
-                    if ($message) {
-                        $whatsappService->sendTextMessage($order->customer_phone, $message);
+                    if ($newStatus === 'ready') {
+                        // Plantilla order_ready: {{1}}=nombre, {{2}}=negocio, {{3}}=pedido, {{4}}=total
+                        $whatsappService->sendTemplateMessage(
+                            $order->customer_phone,
+                            'order_ready',
+                            [
+                                $order->customer_name,
+                                $businessName,
+                                $order->order_number,
+                                number_format($order->total, 2)
+                            ],
+                            'es_PE'
+                        );
+                        Log::info("✅ WhatsApp Cliente enviado (pedido listo)");
+                    } elseif ($newStatus === 'preparing') {
+                        // Plantilla order_confirmation para preparando
+                        $whatsappService->sendTemplateMessage(
+                            $order->customer_phone,
+                            'order_confirmation',
+                            [
+                                $order->customer_name,
+                                $businessName,
+                                $order->order_number,
+                                number_format($order->total, 2)
+                            ],
+                            'es_PE'
+                        );
+                        Log::info("✅ WhatsApp Cliente enviado (preparando)");
                     }
+                    // Para delivered y cancelled, usar mensaje de texto (requieren crear plantillas adicionales)
                     break;
 
                 case 'email':
@@ -141,12 +169,65 @@ class OrderController extends Controller
                                     $messageContent
                                 )
                             );
+                            Log::info("✅ Email Cliente enviado para estado: {$newStatus}");
                         }
                     }
                     break;
             }
         } catch (\Exception $e) {
             Log::error("Error enviando notificación de pedido {$id}: " . $e->getMessage());
+        }
+
+        // 2. Notificar al EMPRENDEDOR/NEGOCIO (solo para estados importantes)
+        // Solo notificamos al negocio cuando el pedido está listo o entregado
+        if (in_array($newStatus, ['ready', 'delivered'])) {
+            try {
+                $account = $order->account;
+                $profile = $account->profile;
+
+                switch ($order->notification_channel) {
+                    case 'whatsapp':
+                        // Usar account->whatsapp para notificar al negocio
+                        $businessPhone = $account->whatsapp ?? null;
+
+                        if ($businessPhone && $whatsappService->isConfigured()) {
+                            $businessName = $profile->business_name ?? $account->name ?? 'Emprendedor';
+
+                            // Usar texto simple para notificaciones de cambio de estado
+                            // (Las plantillas son para crear pedidos/reservas nuevas)
+                            $statusMsg = $newStatus === 'ready'
+                                ? "✅ El pedido {$order->order_number} está LISTO para entregar.\n👤 Cliente: {$order->customer_name}\n📱 Tel: {$order->customer_phone}"
+                                : "✅ El pedido {$order->order_number} ha sido ENTREGADO.\n👤 Cliente: {$order->customer_name}";
+
+                            $sent = $whatsappService->sendTextMessage($businessPhone, $statusMsg);
+
+                            if ($sent) {
+                                Log::info("✅ WhatsApp Negocio enviado (estado: {$newStatus})");
+                            }
+                        } else {
+                            Log::warning("📱 Negocio sin WhatsApp configurado en Account (ID: {$account->id}) - Campo: " . ($account->whatsapp ?? 'NULL'));
+                        }
+                        break;
+
+                    case 'email':
+                    case 'sms':
+                    default:
+                        // Notificar por email al negocio
+                        if ($profile && $profile->notification_email) {
+                            $statusText = $newStatus === 'ready' ? 'listo para entregar' : 'entregado';
+                            Mail::to($profile->notification_email)->send(
+                                new GenericEmail(
+                                    "Pedido {$order->order_number} {$statusText}",
+                                    "El pedido {$order->order_number} de {$order->customer_name} ha sido marcado como {$statusText}."
+                                )
+                            );
+                            Log::info("✅ Email Negocio enviado (estado: {$newStatus})");
+                        }
+                        break;
+                }
+            } catch (\Exception $e) {
+                Log::error("Error notificando negocio sobre cambio de estado: " . $e->getMessage());
+            }
         }
 
         return response()->json([
@@ -192,21 +273,37 @@ class OrderController extends Controller
         DB::beginTransaction();
         try {
             $total = 0;
-            
+
             // Si no se especifica canal, asumimos email por defecto
             $channel = $request->notification_channel ?? 'email';
 
+            // 🆕 Buscar o crear customer
+            $customer = $this->customerService->findOrCreateCustomer(
+                $account,
+                [
+                    'name' => $request->customer_name,
+                    'phone' => $request->customer_phone ?? '',
+                    'email' => $request->customer_email ?? null,
+                    'preferences' => [
+                        'notification_channel' => $channel,
+                    ],
+                ],
+                null // Guest order (creado por admin)
+            );
+
             $order = Order::create([
                 'account_id' => $accountId,
+                'customer_id' => $customer->id, // 🆕 Vincular customer
                 'customer_name' => $request->customer_name,
                 'customer_phone' => $request->customer_phone,
+                'customer_email' => $request->customer_email,
                 'delivery_address' => $request->delivery_address ?? 'Local',
                 'status' => 'preparing', // Manual = Confirmado automáticamente
                 'payment_method' => $request->payment_method ?? 'cash',
                 'order_number' => 'ORD-' . strtoupper(substr(uniqid(), -6)),
                 'total' => 0,
                 'confirmed_at' => now(),
-                'notification_channel' => $channel, // 👈 Guardamos
+                'notification_channel' => $channel,
             ]);
 
             foreach ($request->items as $item) {
@@ -227,6 +324,9 @@ class OrderController extends Controller
             }
 
             $order->update(['total' => $total]);
+
+            // 🆕 Actualizar timestamp de última actividad
+            $customer->touchLastOrder();
 
             // Notificación inicial de "Preparando"
             try {

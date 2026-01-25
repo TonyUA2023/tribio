@@ -2,6 +2,7 @@
 import React from 'react';
 import { FaShoppingCart, FaTimes, FaMinus, FaPlus, FaLeaf } from 'react-icons/fa';
 import { CartItem } from '@/hooks/useCart'; // Asegúrate de importar la interfaz
+import { resolveMediaUrl } from '@/utils/mediaUrl';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -11,16 +12,17 @@ interface CartDrawerProps {
   onUpdateQuantity: (id: number, delta: number) => void;
   onProceed: () => void;
   primaryColor?: string;
+  hidePrices?: boolean;
+  translations?: {
+    yourOrder?: string;
+    emptyCart?: string;
+    subtotal?: string;
+    continue?: string;
+  };
+  currencySymbol?: string;
 }
 
-const resolveMediaUrl = (raw?: string) => {
-    if (!raw) return '';
-    const s = String(raw).trim();
-    if (s.startsWith('http')) return s;
-    return `/uploaded_files/${s.replace(/^uploaded_files\//, '')}`;
-};
-
-const money = (n: number) => `S/ ${n.toFixed(2)}`;
+const money = (n: number, symbol: string = 'S/') => `${symbol} ${n.toFixed(2)}`;
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
@@ -29,8 +31,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   total,
   onUpdateQuantity,
   onProceed,
-  primaryColor = '#fbbf24'
+  primaryColor = '#fbbf24',
+  hidePrices = false,
+  translations = {},
+  currencySymbol = 'S/'
 }) => {
+  const t = {
+    yourOrder: translations.yourOrder || 'Tu Pedido',
+    emptyCart: translations.emptyCart || 'Tu carrito está vacío',
+    subtotal: translations.subtotal || 'Subtotal',
+    continue: translations.continue || 'Continuar'
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -47,8 +59,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         {/* Header */}
         <div className="p-5 border-b border-white/5 flex justify-between items-center">
           <h2 className="text-xl font-bold text-white flex items-center gap-3">
-            <FaShoppingCart style={{ color: primaryColor }} /> 
-            Tu Pedido
+            <FaShoppingCart style={{ color: primaryColor }} />
+            {t.yourOrder}
           </h2>
           <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 text-white">
             <FaTimes />
@@ -60,7 +72,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           {cart.length === 0 ? (
              <div className="flex flex-col items-center justify-center h-full opacity-50">
                 <FaShoppingCart size={40} className="mb-2"/>
-                <p>Tu carrito está vacío</p>
+                <p>{t.emptyCart}</p>
              </div>
           ) : (
             cart.map((item) => (
@@ -73,13 +85,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <FaLeaf className="text-white/20" />
                     )}
                 </div>
-                
+
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-white text-sm truncate">{item.name}</h4>
-                    <span className="font-medium text-gray-400 text-xs">{money(item.price)}</span>
+                    {!hidePrices && (
+                      <span className="font-medium text-gray-400 text-xs">{money(item.price, currencySymbol)}</span>
+                    )}
                 </div>
-                
+
                 {/* Controles */}
                 <div className="flex items-center gap-3 bg-black/40 rounded-lg p-1">
                     <button onClick={() => onUpdateQuantity(item.id, -1)} className="w-6 h-6 rounded-md flex items-center justify-center text-white hover:bg-white/10">
@@ -98,16 +112,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         {/* Footer */}
         {cart.length > 0 && (
             <div className="p-6 bg-[#0a0a0a] border-t border-white/5">
-            <div className="flex justify-between mb-4 text-lg font-bold text-white">
-                <span className="text-gray-400 text-sm font-normal">Subtotal</span>
-                <span>{money(total)}</span>
-            </div>
+            {!hidePrices && (
+              <div className="flex justify-between mb-4 text-lg font-bold text-white">
+                  <span className="text-gray-400 text-sm font-normal">{t.subtotal}</span>
+                  <span>{money(total, currencySymbol)}</span>
+              </div>
+            )}
             <button
                 onClick={onProceed}
                 className="w-full py-4 rounded-xl font-bold text-black text-base text-center hover:brightness-110 transition-all shadow-lg"
                 style={{ backgroundColor: primaryColor }}
             >
-                Continuar
+                {t.continue}
             </button>
             </div>
         )}

@@ -160,7 +160,7 @@ class ProfileDisplayController extends Controller
             if ($activeTemplate) {
                 
                 // 🔥 LOGICA NUEVA: Cargar productos si la plantilla es de showcase 🔥
-                if (in_array($activeTemplate->slug, ['product-showcase', 'natural-cafe', 'wellness-coach'])) {
+                if (in_array($activeTemplate->slug, ['product-showcase', 'natural-cafe', 'wellness-coach', 'academy'])) {
                     $products = Product::where('account_id', $account->id)
                         ->where('available', true)
                         ->orderBy('sort_order', 'asc')
@@ -224,9 +224,12 @@ class ProfileDisplayController extends Controller
                     'accountSlug' => $account->slug,
                     
                     'ctaMode' => $ctaMode,
-                    
+
                     // INYECTAMOS LOS PRODUCTOS AQUÍ
                     'products' => $products,
+
+                    // CONFIGURACIÓN ESPECÍFICA DEL TEMPLATE
+                    'templateConfig' => $profile->template_config ?? [],
                     
                 ], $customizations ?? []);
             }
@@ -352,6 +355,8 @@ class ProfileDisplayController extends Controller
                 'natural-cafe'     => 'Templates/NaturalCafeTemplate',
                 'wellness-coach'  => 'Templates/WellnessCoachTemplate',
                 'carwash-modern'  => 'Templates/CarWashTemplate',
+                'tribio-professional'  => 'Templates/TribioTemplate',
+                'academy'  => 'Templates/AcademyTemplate',
                 default => 'Templates/ModernMinimalTemplate', 
             };
         }

@@ -19,6 +19,7 @@ import { BookingWidget } from '@/components/booking/BookingWidget';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { ReviewsList } from '@/components/reviews/ReviewsList';
 import { ScrollReveal } from '@/components/animated/ScrollReveal';
+import { normalizeSocialLinks } from '@/utils/socialLinks';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { StoryCircle } from '@/components/stories/StoryCircle';
 import PostGridModal from '@/components/posts/PostGridModal';
@@ -148,6 +149,9 @@ export const PersonalProfile3D: React.FC<TemplateProps> = ({ config }) => {
     ctaMode = 'contact'
   } = config;
 
+  // Normalize social links
+  const normalizedLinks = useMemo(() => normalizeSocialLinks(socialLinks), [socialLinks]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(true);
   
@@ -165,7 +169,7 @@ export const PersonalProfile3D: React.FC<TemplateProps> = ({ config }) => {
 
   const activeLinks = useMemo(() => {
     return SOCIAL_PLATFORMS.filter(platform => {
-      const url = socialLinks[platform.key];
+      const url = normalizedLinks[platform.key];
       return url && url.length > 0;
     }).map(platform => ({
       ...platform,
@@ -179,6 +183,7 @@ export const PersonalProfile3D: React.FC<TemplateProps> = ({ config }) => {
     services,
     accentColor: primaryColor,
     socialLinks,
+    language: 'es' as const,
   };
 
   return (

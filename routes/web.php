@@ -19,7 +19,6 @@ use App\Http\Controllers\ReviewManagementController;
 use App\Http\Controllers\Api\StoryController;
 // 👇 NUEVO CONTROLADOR PARA PEDIDOS PÚBLICOS
 use App\Http\Controllers\PublicCheckoutController;
-use App\Http\Controllers\ContentFeedController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,10 +32,28 @@ Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
 // --- Landing Page Principal ---
 Route::get('/', function () {
-    return Inertia::render('landing', [
+    return Inertia::render('web/landing', [
         'canRegister' => Features::enabled(Features::registration()),
     ]);
 })->name('home');
+
+// --- Directorio de Negocios ---
+Route::get('/directorio', function () {
+    return Inertia::render('web/Directory');
+})->name('directory');
+
+// --- Página de Precios ---
+Route::get('/precios', function () {
+    return Inertia::render('web/pricing');
+})->name('pricing');
+
+// --- Página de Checkout/Registro ---
+Route::get('/registro', function () {
+    return Inertia::render('web/Checkout', [
+        'slug' => request()->query('slug', ''),
+        'plan' => request()->query('plan', 'pro'),
+    ]);
+})->name('checkout');
 
 // --- RUTAS PROTEGIDAS (PANEL DE CLIENTE/DUEÑO) ---
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -180,10 +197,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 // Debe ir ANTES de los comodines genéricos /{account_slug}
 Route::post('/{account_slug}/checkout', [PublicCheckoutController::class, 'store'])
     ->name('public.checkout');
-
-// Ruta para feed de contenido estilo TikTok
-Route::get('/{account_slug}/content', [ContentFeedController::class, 'show'])
-    ->name('content.feed');
 
 // Ruta para feed de posts estilo TikTok
 Route::get('/{account_slug}/posts', function ($accountSlug) {

@@ -363,7 +363,7 @@ const MajesticBarberCard = () => {
             <div className="flex items-center gap-3 animate-fade-up delay-200 mb-4">
               <div className="h-[1px] w-6 bg-gradient-to-r from-transparent to-amber-500/50" />
               <p className="text-amber-100/70 text-xs sm:text-sm uppercase tracking-[0.3em] font-medium">
-                {profile.title || 'Professional Cuts & Shaves'}
+                {profile.title || 'Cortes y Afeitados Profesionales'}
               </p>
               <div className="h-[1px] w-6 bg-gradient-to-l from-transparent to-amber-500/50" />
             </div>
@@ -371,7 +371,7 @@ const MajesticBarberCard = () => {
             <div className="flex items-center gap-3 animate-fade-up delay-300">
               <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
                 <FaStar className="text-amber-400 text-xs" />
-                <span className="text-xs font-bold text-white">5.0 Rating</span>
+                <span className="text-xs font-bold text-white">5.0 Calificación</span>
               </div>
               <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
                 <FaCrown className="text-amber-400 text-xs" />

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Review;
 use App\Models\Profile;
+use App\Services\CustomerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
@@ -12,6 +13,10 @@ use Illuminate\Support\Str;
 
 class ReviewController extends Controller
 {
+    public function __construct(
+        protected CustomerService $customerService
+    ) {}
+
     /**
      * Crear una nueva reseña
      */
@@ -20,6 +25,7 @@ class ReviewController extends Controller
         $validator = Validator::make($request->all(), [
             'profile_id' => 'required|exists:profiles,id',
             'client_name' => 'required|string|max:255',
+            'client_phone' => 'required|string|max:20',
             'client_email' => 'nullable|email|max:255',
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'required|string|max:1000',
@@ -36,6 +42,18 @@ class ReviewController extends Controller
         try {
             // Obtener el profile y su account_id
             $profile = Profile::findOrFail($request->profile_id);
+
+            // 🆕 Buscar o crear customer
+            $user = $request->user(); // null si es guest
+            $customer = $this->customerService->findOrCreateCustomer(
+                $profile->account,
+                [
+                    'name' => $request->client_name,
+                    'phone' => $request->client_phone,
+                    'email' => $request->client_email,
+                ],
+                $user
+            );
 
             $imagePath = null;
 
@@ -55,7 +73,9 @@ class ReviewController extends Controller
             $review = Review::create([
                 'profile_id' => $request->profile_id,
                 'account_id' => $profile->account_id,
+                'customer_id' => $customer->id, // 🆕 Vincular customer
                 'client_name' => $request->client_name,
+                'client_phone' => $request->client_phone,
                 'client_email' => $request->client_email,
                 'rating' => $request->rating,
                 'comment' => $request->comment,

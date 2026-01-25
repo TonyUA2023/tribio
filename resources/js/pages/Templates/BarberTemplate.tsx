@@ -1,497 +1,503 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Head } from '@inertiajs/react';
+// resources/js/Pages/templates/AcademyTemplate.tsx
+import React, { useEffect, useMemo, useState } from "react";
+import { Head } from "@inertiajs/react";
 import {
   FaWhatsapp,
   FaInstagram,
   FaTiktok,
-  FaClock,
-  FaStar,
-  FaCut,
-  FaCrown,
-  FaChevronRight,
   FaFacebook,
-} from 'react-icons/fa';
+  FaBook,
+  FaClock,
+  FaMapMarkerAlt,
+  FaChevronRight,
+  FaStar,
+} from "react-icons/fa";
 
-// Componentes
-import { BookingWidget } from '@/components/booking/BookingWidget';
-import { PremiumCarousel, CarouselImage } from '@/components/gallery/PremiumCarousel';
-import { ReviewForm } from '@/components/reviews/ReviewForm';
-import { ReviewsList } from '@/components/reviews/ReviewsList';
-import { ScrollReveal } from '@/components/animated/ScrollReveal';
-import { LoadingScreen } from '@/components/LoadingScreen';
-import { StoryCircle } from '@/components/stories/StoryCircle';
-import PostGridModal from '@/components/posts/PostGridModal';
-import { ContentButton } from '@/components/content/ContentButton';
+import { BookingWidget } from "@/components/booking/BookingWidget";
+import { PremiumCarousel, CarouselImage } from "@/components/gallery/PremiumCarousel";
+import { ReviewForm } from "@/components/reviews/ReviewForm";
+import { ReviewsList } from "@/components/reviews/ReviewsList";
+import { ScrollReveal } from "@/components/animated/ScrollReveal";
+import { normalizeSocialLinks } from "@/utils/socialLinks";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { StoryCircle } from "@/components/stories/StoryCircle";
+import PostGridModal from "@/components/posts/PostGridModal";
+import { ShareButton } from "@/components/ShareButton";
 
-/**
- * Configuración de Plantilla
- */
-export interface TemplateConfig {
-  // Colores y estilos
-  primaryColor: string;
-  backgroundColor: string;
-  gradientFrom: string;
-  gradientTo: string;
+// --- TIPOS ---
+export interface AcademyConfig {
+  primaryColor?: string;
+  backgroundColor?: string;
+  accentColor?: string;
 
-  // Imágenes
   loadingImage?: string;
   coverImage?: string;
   logoImage?: string;
 
-  // Información del negocio
   businessName: string;
   businessTitle: string;
   businessBio?: string;
 
-  // Servicios
-  services: string[];
-
-  // Horario
+  services?: any;
   schedule?: string;
+  address?: string;
 
-  // Redes sociales
-  socialLinks: {
+  // Soportar ambos nombres como en otros templates
+  socialLinks?: {
     whatsapp?: string;
     instagram?: string;
     tiktok?: string;
     facebook?: string;
+    [key: string]: any;
+  };
+  social_links?: {
+    whatsapp?: string;
+    instagram?: string;
+    tiktok?: string;
+    facebook?: string;
+    [key: string]: any;
   };
 
-  // Galería
   gallery?: CarouselImage[];
-
-  // IDs para funcionalidades
   profileId: number;
   accountSlug: string;
 }
 
-interface BarberTemplateProps {
-  config: TemplateConfig;
-  customizations?: any; // Personalizaciones del usuario
+interface AcademyProps {
+  config: AcademyConfig;
+  customizations?: any;
 }
 
-/**
- * Normaliza URLs de medios
- */
+// --- UTIL ---
 const resolveMediaUrl = (raw?: string) => {
-  if (!raw) return '';
+  if (!raw) return "";
   const s = String(raw).trim();
-  if (!s) return '';
-  if (s.startsWith('http://') || s.startsWith('https://')) return s;
-  if (s.startsWith('/')) return s;
-
-  const cleaned = s.replace(/^uploaded_files\//, '');
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+  if (s.startsWith("/")) return s;
+  const cleaned = s.replace(/^uploaded_files\//, "");
   return `/uploaded_files/${cleaned}`;
 };
 
-/**
- * Fondo Animado Barbería
- */
-const BarberBackground = ({ color, bgColor }: { color: string; bgColor: string }) => (
-  <div className="pointer-events-none fixed inset-0 -z-0" style={{ backgroundColor: bgColor }}>
-    <div
-      className="absolute inset-0 opacity-[0.03]"
-      style={{
-        backgroundImage: `repeating-linear-gradient(
-          45deg,
-          transparent,
-          transparent 40px,
-          ${color} 40px,
-          ${color} 80px
-        )`,
-        backgroundSize: '200% 200%',
-        animation: 'barberScroll 60s linear infinite',
-      }}
-    />
+// Fondo vino + dorado
+const AcademyBackground = ({ bg }: { bg: string }) => (
+  <div className="fixed inset-0 -z-10 pointer-events-none" style={{ backgroundColor: bg }}>
     <div
       className="absolute inset-0 opacity-20"
       style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E")`,
+        backgroundImage:
+          "radial-gradient(circle at top, rgba(255,215,0,0.25), transparent 60%)",
       }}
     />
-    <style>{`
-      @keyframes barberScroll {
-        0% { background-position: 0 0; }
-        100% { background-position: 80px 80px; }
-      }
-      @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade-up { animation: fadeUp 0.8s ease-out forwards; opacity: 0; }
-      .delay-100 { animation-delay: 0.1s; }
-      .delay-200 { animation-delay: 0.2s; }
-      .delay-300 { animation-delay: 0.3s; }
-    `}</style>
+    <div
+      className="absolute inset-0 opacity-[0.06]"
+      style={{
+        backgroundImage:
+          "url('data:image/svg+xml,%3Csvg width=\"20\" height=\"20\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Ccircle cx=\"2\" cy=\"2\" r=\"1\" fill=\"%23B8860B\"/%3E%3C/svg%3E')",
+      }}
+    />
   </div>
 );
 
-/**
- * Botón Social Premium
- */
-const PremiumSocialButton = ({
+// Botón social premium
+const SocialButton = ({
   icon,
   title,
   subtitle,
   href,
-  brandColor,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   href: string;
-  brandColor: string;
 }) => (
   <a
     href={href}
     target="_blank"
     rel="noopener noreferrer"
-    className="group relative flex items-center gap-4 p-4 rounded-xl overflow-hidden
-      bg-white/5 border border-white/5 backdrop-blur-md
-      hover:border-white/10 transition-all duration-500 hover:-translate-y-1"
+    className="group flex items-center gap-4 p-4 rounded-xl bg-white/5 
+      border border-white/10 backdrop-blur-md hover:bg-white/10 hover:border-white/30
+      transition-all duration-300"
   >
-    <div
-      className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-r ${brandColor}`}
-    />
-    <div
-      className="relative z-10 w-12 h-12 rounded-full flex items-center justify-center
-      bg-gradient-to-br from-gray-800 to-black border border-white/10 shadow-lg
-      group-hover:scale-110 transition-transform duration-300"
-    >
-      <div className="text-gray-300 group-hover:text-white transition-colors">
-        {icon}
-      </div>
+    <div className="w-11 h-11 rounded-full flex items-center justify-center bg-black/40 border border-white/10">
+      <div className="text-white">{icon}</div>
     </div>
 
-    <div className="relative z-10 flex flex-col flex-1">
-      <span className="text-gray-500 text-[10px] uppercase tracking-widest font-semibold group-hover:text-gray-300 transition-colors">
+    <div className="flex flex-col flex-1 min-w-0">
+      <span className="text-[10px] uppercase tracking-widest text-gray-300">
         {subtitle}
       </span>
-      <span className="text-gray-100 font-bold text-base leading-tight group-hover:text-amber-400 transition-colors">
-        {title}
-      </span>
+      <span className="text-white font-semibold truncate">{title}</span>
     </div>
 
-    <div className="relative z-10 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-      <FaChevronRight className="text-white/50" />
-    </div>
+    <FaChevronRight className="text-white/40 group-hover:text-white transition" />
   </a>
 );
 
-export const BarberTemplate: React.FC<BarberTemplateProps> = ({ config, customizations }) => {
-  // Merge config con customizations
-  const finalConfig = useMemo(() => ({
-    ...config,
-    ...(customizations || {}),
-  }), [config, customizations]);
+// --- COMPONENTE PRINCIPAL ---
+const AcademyTemplate: React.FC<AcademyProps> = ({ config, customizations }) => {
+  const finalConfig = useMemo(
+    () => ({
+      primaryColor: "#B8860B",
+      backgroundColor: "#4A0000",
+      accentColor: "#FFD700",
+      ...config,
+      ...(customizations || {}),
+    }),
+    [config, customizations]
+  );
 
   const {
-    primaryColor = '#fbbf24',
-    backgroundColor = '#0f172a',
-    gradientFrom = '#fbbf24',
-    gradientTo = '#fcd34d',
+    primaryColor,
+    backgroundColor,
+    accentColor = "#FFD700",
     loadingImage,
     coverImage,
     logoImage,
-    businessName = 'Mi Negocio',
-    businessTitle = 'Bienvenido',
-    businessBio = '',
-    services = [],
-    schedule = '',
-    socialLinks = {},
+    businessName,
+    businessTitle,
+    businessBio,
+    services,
+    schedule,
+    address,
+    socialLinks: links1 = {},
+    social_links: links2 = {},
     gallery = [],
     profileId,
     accountSlug,
   } = finalConfig;
 
-  // Loading Screen State
+  // Mezcla de socialLinks y social_links para soportar ambos formatos
+  const rawSocialLinks = useMemo(
+    () => ({
+      ...(links2 || {}),
+      ...(links1 || {}),
+    }),
+    [links1, links2]
+  );
+
+  // Normalizar (añade https, wa.me, etc.)
+  const normalizedLinks = useMemo(
+    () => normalizeSocialLinks(rawSocialLinks),
+    [rawSocialLinks]
+  );
+
   const [isLoading, setIsLoading] = useState(true);
-  const loadingScreenUrl = loadingImage ? resolveMediaUrl(loadingImage) : null;
 
-  // Parallax
-  const [y, setY] = useState(0);
-  useEffect(() => {
-    const onScroll = () => setY(Math.min(60, window.scrollY * 0.15));
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  const resolvedLogo = logoImage ? resolveMediaUrl(logoImage) : null;
+  const resolvedCover = coverImage ? resolveMediaUrl(coverImage) : null;
+  const loadingScreenUrl = loadingImage
+    ? resolveMediaUrl(loadingImage)
+    : resolvedLogo || undefined;
 
-  // Widget booking config
+  const servicesArray: any[] = Array.isArray(services) ? services : [];
+
+  // Config para Booking (igual que otros templates)
   const bookingConfig = {
     profileId,
     businessName,
-    services,
+    services: servicesArray,
     accentColor: primaryColor,
-    socialLinks,
+    socialLinks: rawSocialLinks,
+    language: 'es' as const,
   };
 
-  const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const ogImage = coverImage || logoImage;
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <LoadingScreen
+        logoUrl={loadingScreenUrl}
+        onLoadingComplete={() => setIsLoading(false)}
+        minDuration={1000}
+      />
+    );
+  }
 
   return (
     <>
-      {/* Loading Screen */}
-      {isLoading && (
-        <LoadingScreen
-          logoUrl={loadingScreenUrl}
-          onLoadingComplete={() => setIsLoading(false)}
-          minDuration={1500}
-        />
-      )}
-
-      <Head title={businessName}>
-        <meta name="description" content={businessTitle} />
-        <meta name="keywords" content="TRIBIO, reservas online, barbería" />
-        <link rel="canonical" href={pageUrl} />
-
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content={businessName} />
-        <meta property="og:description" content={businessTitle} />
-        {ogImage && <meta property="og:image" content={ogImage} />}
-        <meta property="og:url" content={pageUrl} />
-        <meta property="og:site_name" content="TRIBIO" />
-
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={businessName} />
-        <meta name="twitter:description" content={businessTitle} />
-        {ogImage && <meta name="twitter:image" content={ogImage} />}
+      <Head title={businessName || "Academia"}>
+        <meta name="theme-color" content={backgroundColor || "#4A0000"} />
       </Head>
 
-      <div className="relative min-h-screen">
-        <BarberBackground color={primaryColor} bgColor={backgroundColor} />
+      <AcademyBackground bg={backgroundColor || "#4A0000"} />
 
-        {/* Header con Cover y Logo */}
-        <div className="relative w-full">
-          {coverImage && (
-            <div className="h-48 sm:h-64 overflow-hidden">
-              <div
-                className="h-full bg-cover bg-center transition-transform duration-700"
-                style={{
-                  backgroundImage: `url(${resolveMediaUrl(coverImage)})`,
-                  transform: `translateY(${y}px)`,
-                }}
-              />
-            </div>
-          )}
-
-          <div className="relative px-4 sm:px-6 max-w-5xl mx-auto">
-            <div className="flex flex-col items-center -mt-16 sm:-mt-20">
-              {logoImage && (
-                <div
-                  className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 shadow-2xl bg-black overflow-hidden"
-                  style={{ borderColor: primaryColor }}
-                >
+      <div className="min-h-screen w-full flex justify-center text-white">
+        <div className="w-full max-w-2xl px-5 pt-6 pb-24 relative">
+          {/* HERO */}
+          <section className="mb-6">
+            <div className="rounded-3xl overflow-hidden border border-white/10 bg-black/40 shadow-2xl">
+              <div className="h-36 w-full overflow-hidden relative">
+                {resolvedCover ? (
                   <img
-                    src={resolveMediaUrl(logoImage)}
+                    src={resolvedCover}
                     alt={businessName}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover opacity-95"
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#5a0000] via-[#2b0000] to-black" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+              </div>
 
-              <div className="text-center mt-4 space-y-2">
+              <div className="px-5 pb-5 pt-4 flex flex-col items-center text-center">
+                {resolvedLogo && (
+                  <div className="-mt-14 mb-3">
+                    <div className="w-24 h-24 rounded-full border-4 border-yellow-500/70 bg-black/80 flex items-center justify-center overflow-hidden shadow-lg shadow-black/70">
+                      <img
+                        src={resolvedLogo}
+                        alt={businessName}
+                        className="w-full h-full object-contain p-2"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <h1
-                  className="text-3xl sm:text-4xl font-black tracking-tight"
-                  style={{
-                    background: `linear-gradient(135deg, ${primaryColor} 0%, #fcd34d 100%)`,
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}
+                  className="text-2xl font-bold tracking-wide"
+                  style={{ color: accentColor }}
                 >
                   {businessName}
                 </h1>
-                <p className="text-gray-400 text-sm sm:text-base font-medium">
-                  {businessTitle}
-                </p>
+                <p className="text-sm text-gray-200 mt-1">{businessTitle}</p>
+
                 {businessBio && (
-                  <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto mt-2">
+                  <p className="text-xs text-gray-200/90 mt-3 leading-relaxed max-w-md">
                     {businessBio}
                   </p>
                 )}
+
+                <div className="flex flex-wrap justify-center gap-2 mt-4 text-[11px]">
+                  {schedule && (
+                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 flex items-center gap-1.5">
+                      <FaClock className="text-yellow-300" />
+                      {schedule}
+                    </span>
+                  )}
+                  {address && (
+                    <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 flex items-center gap-1.5">
+                      <FaMapMarkerAlt className="text-red-300" />
+                      <span className="truncate max-w-[160px]">{address}</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        {/* Main Content */}
-        <div className="relative z-10 px-4 sm:px-6 pb-20 max-w-5xl mx-auto">
-          <div className="mt-8 space-y-8">
-            {/* Stories */}
-            <ScrollReveal>
+          {/* Stories */}
+          <ScrollReveal>
+            <section className="mb-6">
               <StoryCircle profileId={profileId} accentColor={primaryColor} />
-            </ScrollReveal>
+            </section>
+          </ScrollReveal>
 
-            {/* Posts Feed */}
-            <ScrollReveal delay={0.1}>
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
-                    style={{
-                      background: `linear-gradient(135deg, ${primaryColor}, #fcd34d)`,
-                    }}
-                  >
-                    <FaCut className="text-black text-lg" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-100">Publicaciones</h2>
-                </div>
-                <div data-posts-section>
-                  <PostGridModal accountSlug={accountSlug} accentColor={primaryColor} />
-                </div>
+          {/* Feed de posts / videos */}
+          <ScrollReveal>
+            <section className="mb-8" data-posts-section>
+              <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+                <span style={{ color: accentColor }}>🎬</span>
+                <span>Feed de la academia</span>
+              </h2>
+              <div className="rounded-2xl overflow-hidden bg-black/40 border border-white/10">
+                <PostGridModal accountSlug={accountSlug} accentColor={primaryColor} />
               </div>
-            </ScrollReveal>
+            </section>
+          </ScrollReveal>
 
-            {/* Galería */}
-            {gallery && gallery.length > 0 && (
-              <ScrollReveal delay={0.2}>
-                <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
-                      style={{
-                        background: `linear-gradient(135deg, ${primaryColor}, #fcd34d)`,
-                      }}
-                    >
-                      <FaCrown className="text-black text-lg" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-100">Nuestros Trabajos</h2>
-                  </div>
-                  <PremiumCarousel images={gallery} accentColor={primaryColor} />
-                </div>
-              </ScrollReveal>
-            )}
-
-            {/* Servicios */}
-            <ScrollReveal delay={0.3}>
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
-                    style={{
-                      background: `linear-gradient(135deg, ${primaryColor}, #fcd34d)`,
-                    }}
+          {/* Programas / Cursos */}
+          {servicesArray.length > 0 && (
+            <ScrollReveal>
+              <section className="mb-8">
+                <div className="flex items-center justify-between mb-3">
+                  <h2
+                    className="text-lg font-bold"
+                    style={{ color: accentColor }}
                   >
-                    <FaCut className="text-black text-lg" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-100">Servicios</h2>
+                    Programas y Cursos
+                  </h2>
+                  <FaBook className="text-yellow-400" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {services.map((service, i) => (
-                    <div
-                      key={i}
-                      className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 text-center
-                        hover:border-white/20 transition-all duration-300 group"
-                    >
-                      <FaCut className="w-6 h-6 mx-auto mb-2 text-gray-400 group-hover:text-amber-400 transition-colors" />
-                      <span className="text-gray-200 font-medium text-sm">{service}</span>
-                    </div>
-                  ))}
+
+                <div className="grid gap-3">
+                  {servicesArray.map((srv: any, index: number) => {
+                    const isObject = srv && typeof srv === "object";
+                    const key =
+                      isObject && (srv.id ?? srv.title)
+                        ? `${srv.id ?? srv.title}`
+                        : index;
+
+                    const title = isObject
+                      ? srv.title || `Programa ${index + 1}`
+                      : String(srv);
+
+                    const description =
+                      isObject && srv.description ? String(srv.description) : "";
+
+                    const features: any[] =
+                      isObject && Array.isArray(srv.features) ? srv.features : [];
+
+                    return (
+                      <div
+                        key={key}
+                        className="p-4 rounded-2xl bg-black/40 border border-white/15"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center border border-yellow-500/60">
+                            <FaBook className="text-yellow-300" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-sm font-semibold mb-1">
+                              {title}
+                            </h3>
+                            {description && (
+                              <p className="text-xs text-gray-200 mb-1">
+                                {description}
+                              </p>
+                            )}
+                            {features.length > 0 && (
+                              <ul className="mt-1 text-[11px] text-gray-200 list-disc list-inside space-y-0.5">
+                                {features.map((f, fi) => (
+                                  <li key={fi}>{String(f)}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              </section>
             </ScrollReveal>
+          )}
 
-            {/* Horario */}
-            {schedule && (
-              <ScrollReveal delay={0.4}>
-                <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                  <div className="flex items-center gap-3">
-                    <FaClock className="text-2xl" style={{ color: primaryColor }} />
-                    <div>
-                      <h3 className="text-gray-100 font-bold text-lg">Horario de Atención</h3>
-                      <p className="text-gray-400 text-sm">{schedule}</p>
-                    </div>
-                  </div>
-                </div>
-              </ScrollReveal>
-            )}
-
-            {/* Redes Sociales */}
-            <ScrollReveal delay={0.5}>
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                <h2 className="text-2xl font-bold text-gray-100 mb-6 text-center">
-                  Síguenos
+          {/* Galería */}
+          {gallery && gallery.length > 0 && (
+            <ScrollReveal>
+              <section className="mb-8">
+                <h2
+                  className="text-lg font-bold mb-3"
+                  style={{ color: accentColor }}
+                >
+                  Nuestra academia en imágenes
                 </h2>
-                <div className="space-y-3">
-                  {socialLinks.whatsapp && (
-                    <PremiumSocialButton
-                      icon={<FaWhatsapp size={24} />}
-                      title="WhatsApp"
-                      subtitle="Contáctanos"
-                      href={socialLinks.whatsapp}
-                      brandColor="from-green-500 to-green-600"
-                    />
-                  )}
-                  {socialLinks.instagram && (
-                    <PremiumSocialButton
-                      icon={<FaInstagram size={24} />}
-                      title="Instagram"
-                      subtitle="Síguenos"
-                      href={socialLinks.instagram}
-                      brandColor="from-pink-500 to-purple-600"
-                    />
-                  )}
-                  {socialLinks.tiktok && (
-                    <PremiumSocialButton
-                      icon={<FaTiktok size={24} />}
-                      title="TikTok"
-                      subtitle="Síguenos"
-                      href={socialLinks.tiktok}
-                      brandColor="from-black to-gray-800"
-                    />
-                  )}
-                  {socialLinks.facebook && (
-                    <PremiumSocialButton
-                      icon={<FaFacebook size={24} />}
-                      title="Facebook"
-                      subtitle="Síguenos"
-                      href={socialLinks.facebook}
-                      brandColor="from-blue-500 to-blue-700"
-                    />
-                  )}
-                </div>
-              </div>
+                <PremiumCarousel images={gallery} accentColor={primaryColor} />
+              </section>
             </ScrollReveal>
+          )}
 
-            {/* Reseñas */}
-            <ScrollReveal delay={0.6}>
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
-                    style={{
-                      background: `linear-gradient(135deg, ${primaryColor}, #fcd34d)`,
-                    }}
-                  >
-                    <FaStar className="text-black text-lg" />
+          {/* Redes Sociales */}
+          <ScrollReveal>
+            <section className="mb-8">
+              <h2
+                className="text-lg font-bold mb-3"
+                style={{ color: accentColor }}
+              >
+                Redes sociales
+              </h2>
+              <div className="space-y-3">
+                {normalizedLinks.whatsapp && (
+                  <SocialButton
+                    icon={<FaWhatsapp />}
+                    title={normalizedLinks.whatsapp.replace("https://wa.me/", "")}
+                    subtitle="WhatsApp"
+                    href={normalizedLinks.whatsapp}
+                  />
+                )}
+                {normalizedLinks.facebook && (
+                  <SocialButton
+                    icon={<FaFacebook />}
+                    title="Facebook"
+                    subtitle={businessName}
+                    href={normalizedLinks.facebook}
+                  />
+                )}
+                {normalizedLinks.instagram && (
+                  <SocialButton
+                    icon={<FaInstagram />}
+                    title={normalizedLinks.instagram}
+                    subtitle="Instagram"
+                    href={normalizedLinks.instagram}
+                  />
+                )}
+                {normalizedLinks.tiktok && (
+                  <SocialButton
+                    icon={<FaTiktok />}
+                    title={normalizedLinks.tiktok}
+                    subtitle="TikTok"
+                    href={normalizedLinks.tiktok}
+                  />
+                )}
+
+                {/* Compartir */}
+                <div className="group flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 mt-2">
+                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                    <ShareButton
+                      url={
+                        typeof window !== "undefined" ? window.location.href : ""
+                      }
+                      title={businessName}
+                      text={businessBio || `Conoce ${businessName}`}
+                      iconSize={18}
+                      color="#ffffff"
+                    />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-100">Reseñas</h2>
-                </div>
-                <ReviewsList accountSlug={accountSlug} accentColor={primaryColor} />
-                <div className="mt-6">
-                  <ReviewForm accountSlug={accountSlug} accentColor={primaryColor} />
+                  <span className="text-sm font-medium">
+                    Compartir esta academia
+                  </span>
                 </div>
               </div>
-            </ScrollReveal>
-          </div>
-        </div>
+            </section>
+          </ScrollReveal>
 
-        {/* Content Button - Botón flotante para ver contenido multimedia */}
-        <ContentButton
-          accountSlug={accountSlug}
-          accentColor={primaryColor}
-          position="left"
-        />
-
-        {/* Booking Widget - Fixed at bottom */}
-        <div className="fixed bottom-6 left-4 right-4 z-50 md:absolute md:bottom-6 md:w-[calc(100%-32px)]">
-          <BookingWidget
-            config={bookingConfig}
-            className="shadow-2xl shadow-black ring-1 ring-white/10"
-          />
+          {/* Reseñas */}
+          <ScrollReveal>
+            <section className="mb-10">
+              <div className="flex items-center gap-2 mb-3">
+                <FaStar className="text-yellow-300" />
+                <h2
+                  className="text-lg font-bold"
+                  style={{ color: accentColor }}
+                >
+                  Opiniones de estudiantes
+                </h2>
+              </div>
+              <div className="bg-black/40 border border-white/15 rounded-2xl p-4">
+                <ReviewsList profileId={profileId} accentColor={primaryColor} />
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <ReviewForm profileId={profileId} accentColor={primaryColor} />
+                </div>
+              </div>
+            </section>
+          </ScrollReveal>
         </div>
       </div>
+
+
+      {/* Booking fijo abajo */}
+      <div className="fixed bottom-6 left-4 right-4 z-50 md:absolute md:bottom-6 md:w-[calc(100%-32px)]">
+        <BookingWidget
+          config={bookingConfig}
+          className="shadow-2xl shadow-black ring-1 ring-white/10 w-full"
+        />
+      </div>
+
+      {/* Botón flotante WhatsApp directo */}
+      {normalizedLinks.whatsapp && (
+        <a
+          href={normalizedLinks.whatsapp}
+          target="_blank"
+          rel="noreferrer"
+          className="fixed bottom-24 right-4 w-11 h-11 md:w-12 md:h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/40 border-2 border-emerald-300/60 z-50 md:bottom-28"
+        >
+          <FaWhatsapp size={20} />
+        </a>
+      )}
     </>
   );
 };
 
-export default BarberTemplate;
+export default AcademyTemplate;

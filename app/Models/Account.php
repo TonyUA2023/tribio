@@ -142,4 +142,12 @@ class Account extends Model
         return $this->hasMany(Order::class);
     }
 
+    /**
+     * Get all customers for this account.
+     */
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
+    }
+
 }

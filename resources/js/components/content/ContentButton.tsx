@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FaPlay, FaTimes, FaImage, FaVideo } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
-import { router } from '@inertiajs/react';
+import PostGridModal from '@/components/posts/PostGridModal';
 
 interface ContentButtonProps {
   accountSlug: string;
@@ -18,12 +18,12 @@ export const ContentButton: React.FC<ContentButtonProps> = ({
   accentColor = '#fbbf24',
   position = 'right'
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const handleViewContent = () => {
-    // Navegar al feed de contenido estilo TikTok
-    router.visit(`/${accountSlug}/content`);
-    setIsOpen(false);
+    setIsMenuOpen(false);
+    setShowModal(true);
   };
 
   const positionClasses = position === 'left' ? 'left-4' : 'right-4';
@@ -32,7 +32,7 @@ export const ContentButton: React.FC<ContentButtonProps> = ({
     <>
       {/* Botón Principal */}
       <motion.button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsMenuOpen(!isMenuOpen)}
         className={`fixed bottom-24 ${positionClasses} z-30 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95`}
         style={{ backgroundColor: accentColor }}
         whileTap={{ scale: 0.9 }}
@@ -41,7 +41,7 @@ export const ContentButton: React.FC<ContentButtonProps> = ({
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
       >
         <AnimatePresence mode="wait">
-          {isOpen ? (
+          {isMenuOpen ? (
             <motion.div
               key="close"
               initial={{ rotate: 0, opacity: 0 }}
@@ -67,7 +67,7 @@ export const ContentButton: React.FC<ContentButtonProps> = ({
 
       {/* Opciones Emergentes */}
       <AnimatePresence>
-        {isOpen && (
+        {isMenuOpen && (
           <motion.div
             className={`fixed bottom-40 ${positionClasses} z-29 flex flex-col gap-3`}
             initial={{ opacity: 0, y: 20 }}
@@ -110,16 +110,24 @@ export const ContentButton: React.FC<ContentButtonProps> = ({
 
       {/* Backdrop */}
       <AnimatePresence>
-        {isOpen && (
+        {isMenuOpen && (
           <motion.div
             className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-28"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsOpen(false)}
+            onClick={() => setIsMenuOpen(false)}
           />
         )}
       </AnimatePresence>
+
+      {/* Modal de Posts */}
+      {showModal && (
+        <PostGridModal
+          accountSlug={accountSlug}
+          accentColor={accentColor}
+        />
+      )}
     </>
   );
 };

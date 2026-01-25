@@ -232,16 +232,12 @@ class WhatsAppService
     /**
      * Limpiar y formatear número de teléfono
      * WhatsApp requiere formato internacional sin '+' ni espacios
+     * El número ya debe venir con código de país desde el frontend
      */
     private function cleanPhoneNumber(string $phone): string
     {
-        // Remover todo excepto números
+        // Remover todo excepto números (eliminar +, espacios, guiones, etc.)
         $clean = preg_replace('/[^0-9]/', '', $phone);
-
-        // Si tiene 9 dígitos, asumir Perú y agregar 51
-        if (strlen($clean) === 9) {
-            $clean = '51' . $clean;
-        }
 
         return $clean;
     }

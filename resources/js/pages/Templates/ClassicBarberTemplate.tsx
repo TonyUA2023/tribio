@@ -19,9 +19,11 @@ import { PremiumCarousel, CarouselImage } from '@/components/gallery/PremiumCaro
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { ReviewsList } from '@/components/reviews/ReviewsList';
 import { ScrollReveal } from '@/components/animated/ScrollReveal';
+import { normalizeSocialLinks } from '@/utils/socialLinks';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { StoryCircle } from '@/components/stories/StoryCircle';
 import PostGridModal from '@/components/posts/PostGridModal';
+import { ShareButton } from '@/components/ShareButton';
 
 /**
  * Configuración de Plantilla Classic Barber
@@ -159,6 +161,9 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
     accountSlug,
   } = finalConfig;
 
+  // Normalize social links
+  const normalizedLinks = useMemo(() => normalizeSocialLinks(socialLinks), [socialLinks]);
+
   const [isLoading, setIsLoading] = useState(true);
   const loadingScreenUrl = loadingImage ? resolveMediaUrl(loadingImage) : null;
 
@@ -168,6 +173,7 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
     services,
     accentColor: primaryColor,
     socialLinks,
+    language: 'es' as const,
   };
 
   const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -376,9 +382,9 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
                   Encuéntranos
                 </h2>
                 <div className="grid grid-cols-2 gap-4">
-                  {socialLinks.whatsapp && (
+                  {normalizedLinks.whatsapp && (
                     <a
-                      href={socialLinks.whatsapp}
+                      href={normalizedLinks.whatsapp}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-4 rounded-lg bg-black/40 border-2 hover:bg-black/60 transition-all"
@@ -388,9 +394,9 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
                       <span className="text-white font-bold">WhatsApp</span>
                     </a>
                   )}
-                  {socialLinks.instagram && (
+                  {normalizedLinks.instagram && (
                     <a
-                      href={socialLinks.instagram}
+                      href={normalizedLinks.instagram}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-4 rounded-lg bg-black/40 border-2 hover:bg-black/60 transition-all"
@@ -400,9 +406,9 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
                       <span className="text-white font-bold">Instagram</span>
                     </a>
                   )}
-                  {socialLinks.facebook && (
+                  {normalizedLinks.facebook && (
                     <a
-                      href={socialLinks.facebook}
+                      href={normalizedLinks.facebook}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-4 rounded-lg bg-black/40 border-2 hover:bg-black/60 transition-all"
@@ -412,9 +418,9 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
                       <span className="text-white font-bold">Facebook</span>
                     </a>
                   )}
-                  {socialLinks.tiktok && (
+                  {normalizedLinks.tiktok && (
                     <a
-                      href={socialLinks.tiktok}
+                      href={normalizedLinks.tiktok}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-4 rounded-lg bg-black/40 border-2 hover:bg-black/60 transition-all"
@@ -424,6 +430,19 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
                       <span className="text-white font-bold">TikTok</span>
                     </a>
                   )}
+                  <div
+                    className="flex items-center gap-3 p-4 rounded-lg bg-black/40 border-2 hover:bg-black/60 transition-all cursor-pointer col-span-2"
+                    style={{ borderColor: primaryColor }}
+                  >
+                    <ShareButton
+                      url={window.location.href}
+                      title={businessName}
+                      text={businessBio || `Conoce ${businessName}`}
+                      iconSize={24}
+                      color="#9CA3AF"
+                    />
+                    <span className="text-white font-bold">Compartir</span>
+                  </div>
                 </div>
               </div>
             </ScrollReveal>

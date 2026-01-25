@@ -51,6 +51,22 @@ class Review extends Model
     }
 
     /**
+     * Relación con el customer
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Obtener el nombre del cliente (con fallback)
+     */
+    public function getCustomerName(): string
+    {
+        return $this->customer?->name ?? $this->client_name;
+    }
+
+    /**
      * Scope para obtener reseñas aprobadas
      */
     public function scopeApproved($query)

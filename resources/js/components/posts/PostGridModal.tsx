@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Post } from '@/types/post';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaPlay, FaTimes, FaChevronLeft, FaChevronRight, FaThLarge } from 'react-icons/fa';
 import axios from 'axios';
-import { router } from '@inertiajs/react';
+import { resolveMediaUrl } from '@/utils/mediaUrl';
 
 interface PostGridModalProps {
   accountSlug: string;
@@ -73,8 +73,20 @@ const PostGridModal: React.FC<PostGridModalProps> = ({
   };
 
   const handlePostClick = (index: number) => {
-    // Redirigir a la página de posts con el índice del post seleccionado
-    window.location.href = `/${accountSlug}/posts?index=${index}`;
+    // Abrir el modal con el post seleccionado
+    setSelectedIndex(index);
+
+    // Bloquear scroll del body
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    // Scroll al post seleccionado
+    setTimeout(() => {
+      if (modalScrollRef.current) {
+        const scrollPosition = index * window.innerHeight;
+        modalScrollRef.current.scrollTo({ top: scrollPosition, behavior: 'auto' });
+      }
+    }, 100);
   };
 
   const handleCloseModal = () => {
@@ -216,7 +228,19 @@ const PostGridModal: React.FC<PostGridModalProps> = ({
   }
 
   const handleViewFullFeed = () => {
-    router.visit(`/${accountSlug}/content`);
+    // Abrir el modal desde el primer post
+    setSelectedIndex(0);
+
+    // Bloquear scroll del body
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    // Scroll al inicio
+    setTimeout(() => {
+      if (modalScrollRef.current) {
+        modalScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    }, 100);
   };
 
   return (
@@ -225,7 +249,11 @@ const PostGridModal: React.FC<PostGridModalProps> = ({
       {posts.length > 0 && (
         <div className="flex justify-center mb-4">
           <button
-            onClick={handleViewFullFeed}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleViewFullFeed();
+            }}
             className="group flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-lg"
             style={{ backgroundColor: accentColor, color: '#fff' }}
           >
@@ -240,7 +268,11 @@ const PostGridModal: React.FC<PostGridModalProps> = ({
         {posts.map((post, index) => (
           <button
             key={post.id}
-            onClick={() => handlePostClick(index)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handlePostClick(index);
+            }}
             className="relative aspect-square bg-black overflow-hidden group"
           >
             {/* Thumbnail */}
@@ -299,7 +331,7 @@ const PostGridModal: React.FC<PostGridModalProps> = ({
       {/* Modal Full-Screen con Feed Vertical */}
       {selectedIndex !== null && (
         <div
-          className="fixed bg-black"
+          className="fixed bg-black z-[100]"
           style={{
             top: 0,
             left: 0,

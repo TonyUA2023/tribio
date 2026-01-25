@@ -3,16 +3,114 @@ import {
   FaCalendarAlt,
   FaClock,
   FaUser,
-  FaPhone,
   FaEnvelope,
   FaCheckCircle,
   FaSpinner,
   FaWhatsapp,
-  FaCommentDots,
   FaTimes,
   FaCut,
+  FaChevronDown,
 } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Configuración de países con códigos y validación de dígitos
+const COUNTRY_CODES = [
+  { code: '+51', country: 'PE', flag: '🇵🇪', name: 'Perú', nameEn: 'Peru', digits: 9 },
+  { code: '+1', country: 'US', flag: '🇺🇸', name: 'Estados Unidos', nameEn: 'United States', digits: 10 },
+  { code: '+52', country: 'MX', flag: '🇲🇽', name: 'México', nameEn: 'Mexico', digits: 10 },
+  { code: '+57', country: 'CO', flag: '🇨🇴', name: 'Colombia', nameEn: 'Colombia', digits: 10 },
+  { code: '+54', country: 'AR', flag: '🇦🇷', name: 'Argentina', nameEn: 'Argentina', digits: 10 },
+  { code: '+56', country: 'CL', flag: '🇨🇱', name: 'Chile', nameEn: 'Chile', digits: 9 },
+  { code: '+593', country: 'EC', flag: '🇪🇨', name: 'Ecuador', nameEn: 'Ecuador', digits: 9 },
+  { code: '+591', country: 'BO', flag: '🇧🇴', name: 'Bolivia', nameEn: 'Bolivia', digits: 8 },
+  { code: '+34', country: 'ES', flag: '🇪🇸', name: 'España', nameEn: 'Spain', digits: 9 },
+];
+
+// Traducciones
+interface Translations {
+  bookAppointment: string;
+  scheduleYourAppointment: string;
+  selectDate: string;
+  selectTime: string;
+  loadingTimes: string;
+  service: string;
+  selectService: string;
+  yourInfo: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  optional: string;
+  required: string;
+  howToReceiveConfirmation: string;
+  confirmAppointment: string;
+  processing: string;
+  appointmentConfirmed: string;
+  confirmationVia: string;
+  perfect: string;
+  digitsRequired: string;
+  phoneValidationError: string;
+  fillRequiredFields: string;
+  emailRequiredError: string;
+  errorProcessing: string;
+  couldNotSchedule: string;
+}
+
+const translations: Record<'es' | 'en', Translations> = {
+  es: {
+    bookAppointment: 'Agendar Cita',
+    scheduleYourAppointment: 'Agenda Tu Cita',
+    selectDate: 'Selecciona una Fecha',
+    selectTime: 'Elige Tu Horario',
+    loadingTimes: 'Cargando horarios...',
+    service: 'Servicio',
+    selectService: 'Seleccionar servicio...',
+    yourInfo: 'Tus Datos',
+    fullName: 'Nombre Completo',
+    phone: 'Teléfono',
+    email: 'Email',
+    optional: 'opcional',
+    required: '*',
+    howToReceiveConfirmation: '¿Cómo quieres recibir la confirmación?',
+    confirmAppointment: 'Confirmar Cita',
+    processing: 'Procesando tu cita...',
+    appointmentConfirmed: '¡Cita Confirmada!',
+    confirmationVia: 'Te enviaremos la confirmación vía',
+    perfect: 'Perfecto',
+    digitsRequired: 'dígitos',
+    phoneValidationError: 'El número debe tener {digits} dígitos para {country}',
+    fillRequiredFields: 'Por favor completa todos los campos obligatorios.',
+    emailRequiredError: 'El email es obligatorio si eliges recibir notificaciones por correo.',
+    errorProcessing: 'Error al procesar la reserva. Por favor intenta nuevamente.',
+    couldNotSchedule: 'No se pudo agendar:',
+  },
+  en: {
+    bookAppointment: 'Book Appointment',
+    scheduleYourAppointment: 'Schedule Your Appointment',
+    selectDate: 'Select a Date',
+    selectTime: 'Choose Your Time',
+    loadingTimes: 'Loading times...',
+    service: 'Service',
+    selectService: 'Select a service...',
+    yourInfo: 'Your Information',
+    fullName: 'Full Name',
+    phone: 'Phone',
+    email: 'Email',
+    optional: 'optional',
+    required: '*',
+    howToReceiveConfirmation: 'How would you like to receive confirmation?',
+    confirmAppointment: 'Confirm Appointment',
+    processing: 'Processing your appointment...',
+    appointmentConfirmed: 'Appointment Confirmed!',
+    confirmationVia: 'We will send confirmation via',
+    perfect: 'Perfect',
+    digitsRequired: 'digits',
+    phoneValidationError: 'Phone must have {digits} digits for {country}',
+    fillRequiredFields: 'Please fill in all required fields.',
+    emailRequiredError: 'Email is required if you choose to receive notifications by email.',
+    errorProcessing: 'Error processing reservation. Please try again.',
+    couldNotSchedule: 'Could not schedule:',
+  },
+};
 
 interface BookingConfig {
   profileId: number;
@@ -25,6 +123,7 @@ interface BookingConfig {
     tiktok?: string;
     whatsapp?: string;
   };
+  language?: 'es' | 'en';
 }
 
 interface BookingWidgetProps {
@@ -48,8 +147,11 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
+  const [countryCode, setCountryCode] = useState('+51'); // Perú por defecto
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [notificationChannel, setNotificationChannel] =
-    useState<'whatsapp' | 'sms' | 'email'>('email');
+    useState<'whatsapp' | 'email'>('email');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingData, setBookingData] = useState<any>(null);
@@ -57,7 +159,40 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   const accentColor = config.accentColor || '#ef4444';
+  const language = config.language || 'es';
+  const t = translations[language];
   const isEmailRequired = notificationChannel === 'email';
+
+  // Obtener configuración del país seleccionado
+  const selectedCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[0];
+  const isPhoneValid = clientPhone.length === selectedCountry.digits;
+
+  // Validar número de teléfono
+  const validatePhone = (phone: string): boolean => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length !== selectedCountry.digits) {
+      const countryName = language === 'en' ? selectedCountry.nameEn : selectedCountry.name;
+      setPhoneError(
+        t.phoneValidationError
+          .replace('{digits}', String(selectedCountry.digits))
+          .replace('{country}', countryName)
+      );
+      return false;
+    }
+    setPhoneError(null);
+    return true;
+  };
+
+  // Manejar cambio de teléfono (solo números)
+  const handlePhoneChange = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '').slice(0, selectedCountry.digits);
+    setClientPhone(cleanValue);
+    if (cleanValue.length > 0) {
+      validatePhone(cleanValue);
+    } else {
+      setPhoneError(null);
+    }
+  };
 
   const channels = [
     {
@@ -73,16 +208,8 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
       label: 'WhatsApp',
       icon: <FaWhatsapp size={14} />,
       color: '#25D366',
-      disabled: true,
-      comingSoon: true,
-    },
-    {
-      id: 'sms',
-      label: 'SMS',
-      icon: <FaCommentDots size={14} />,
-      color: '#3b82f6',
-      disabled: true,
-      comingSoon: true,
+      disabled: false,
+      comingSoon: false,
     },
   ] as const;
 
@@ -114,19 +241,23 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
 
   const handleBooking = async () => {
     if (!selectedDate || !selectedTime || !clientName || !clientPhone) {
-      alert('Por favor completa todos los campos obligatorios.');
+      alert(t.fillRequiredFields);
+      return;
+    }
+    if (!validatePhone(clientPhone)) {
       return;
     }
     if (isEmailRequired && !clientEmail) {
-      alert(
-        'El email es obligatorio si eliges recibir notificaciones por correo.',
-      );
+      alert(t.emailRequiredError);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      // Construir número completo con código de país (sin el +)
+      const fullPhone = countryCode.replace('+', '') + clientPhone;
+
       const response = await fetch('/api/bookings', {
         method: 'POST',
         headers: {
@@ -139,7 +270,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
         body: JSON.stringify({
           profile_id: config.profileId,
           client_name: clientName,
-          client_phone: clientPhone,
+          client_phone: fullPhone,
           client_email: clientEmail,
           booking_date: selectedDate,
           booking_time: selectedTime,
@@ -161,6 +292,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
         setClientName('');
         setClientPhone('');
         setClientEmail('');
+        setPhoneError(null);
       } else {
         if (selectedDate) {
           await fetchOccupiedSlots();
@@ -171,14 +303,14 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
           const errorMessages = Object.values(result.errors)
             .flat()
             .join('\n');
-          alert('No se pudo agendar:\n' + errorMessages);
+          alert(t.couldNotSchedule + '\n' + errorMessages);
         } else {
-          alert(result.message || 'Error al crear la reserva');
+          alert(result.message || t.errorProcessing);
         }
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error al procesar la reserva. Por favor intenta nuevamente.');
+      alert(t.errorProcessing);
     } finally {
       setIsSubmitting(false);
     }
@@ -259,7 +391,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                 transition={{ delay: 0.4 }}
                 className="mb-3 text-2xl font-bold text-white"
               >
-                Appointment Confirmed!
+                {t.appointmentConfirmed}
               </motion.h2>
 
               <motion.p
@@ -268,7 +400,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                 transition={{ delay: 0.5 }}
                 className="text-sm text-gray-300 leading-relaxed"
               >
-                We will send you the confirmation via{' '}
+                {t.confirmationVia}{' '}
                 <span
                   className="font-bold uppercase px-2 py-0.5 rounded-md"
                   style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
@@ -292,7 +424,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                   boxShadow: `0 10px 30px -10px ${accentColor}60`
                 }}
               >
-                Perfect
+                {t.perfect}
               </button>
             </motion.div>
           </motion.div>
@@ -301,28 +433,13 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
     );
   }
 
-  // 2. Botones flotantes - Book Appointment y Contact Us
+  // 2. Botón flotante - Book Appointment
   if (!isOpen) {
-    const whatsappNumber = config.socialLinks?.whatsapp || '';
-
-    const handleContactUs = () => {
-      if (!whatsappNumber) {
-        alert('WhatsApp number not configured');
-        return;
-      }
-
-      // Create WhatsApp message with business info
-      const message = encodeURIComponent(
-        `Hello ${config.businessName}! I would like to get in touch with you.`
-      );
-      window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
-    };
-
     return (
-      <div className={`flex gap-2 ${className}`}>
+      <div className={`${className}`}>
         <button
           onClick={() => setIsOpen(true)}
-          className="flex-1 flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold tracking-wide text-black shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold tracking-wide text-black shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] booking-widget-trigger"
           style={{
             background: `linear-gradient(135deg, ${accentColor} 0%, #d97706 100%)`,
             boxShadow: `0 10px 40px -10px ${accentColor}80, 0 0 20px ${accentColor}40`,
@@ -330,22 +447,8 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
           }}
         >
           <FaCalendarAlt className="text-sm" />
-          <span className="uppercase text-xs">Book Appointment</span>
+          <span className="uppercase text-xs">{t.bookAppointment}</span>
         </button>
-
-        {whatsappNumber && (
-          <button
-            onClick={handleContactUs}
-            className="flex-1 flex items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold tracking-wide text-white shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] bg-emerald-500"
-            style={{
-              boxShadow: '0 10px 40px -10px rgba(16, 185, 129, 0.5), 0 0 20px rgba(16, 185, 129, 0.25)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-            }}
-          >
-            <FaWhatsapp className="text-sm" />
-            <span className="uppercase text-xs">Contact Us</span>
-          </button>
-        )}
       </div>
     );
   }
@@ -382,7 +485,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                   <FaCalendarAlt size={18} style={{ color: accentColor }} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">Book Your Appointment</h2>
+                  <h2 className="text-lg font-bold text-white">{t.scheduleYourAppointment}</h2>
                   <p className="text-xs text-gray-500">{config.businessName}</p>
                 </div>
               </div>
@@ -405,7 +508,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
           >
             <label className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-300">
               <FaCalendarAlt size={14} style={{ color: accentColor }} />
-              Select a Date
+              {t.selectDate}
             </label>
             <div className="relative">
               <input
@@ -430,12 +533,12 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
             >
               <label className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-300">
                 <FaClock size={14} style={{ color: accentColor }} />
-                Choose Your Time
+                {t.selectTime}
               </label>
               {loadingSlots ? (
                 <div className="py-8 text-center">
                   <FaSpinner className="inline animate-spin text-2xl" style={{ color: accentColor }} />
-                  <p className="mt-3 text-sm text-gray-400">Loading times...</p>
+                  <p className="mt-3 text-sm text-gray-400">{t.loadingTimes}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-4 gap-2.5">
@@ -486,7 +589,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
             >
               <label className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-300">
                 <FaCut size={14} style={{ color: accentColor }} />
-                Service (optional)
+                {t.service} ({t.optional})
               </label>
               <select
                 value={selectedService}
@@ -494,7 +597,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all focus:border-white/20 focus:bg-white/10 text-base appearance-none cursor-pointer"
                 style={{ colorScheme: 'dark' }}
               >
-                <option value="">Select service...</option>
+                <option value="">{t.selectService}</option>
                 {config.services.map((svc, i) => (
                   <option key={i} value={svc}>
                     {svc}
@@ -513,11 +616,11 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
             transition={{ delay: 0.4 }}
             className="space-y-4"
           >
-            <h3 className="text-sm font-bold text-white mb-4">Your Information</h3>
+            <h3 className="text-sm font-bold text-white mb-4">{t.yourInfo}</h3>
 
             <div>
               <label className="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
-                Full Name *
+                {t.fullName} {t.required}
               </label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
@@ -528,49 +631,105 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-white/5 pl-12 pr-5 py-4 text-white outline-none transition-all focus:border-white/20 focus:bg-white/10 placeholder:text-gray-600"
-                  placeholder="John Doe"
+                  placeholder={language === 'en' ? 'John Doe' : 'Juan Pérez'}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
-                  Phone *
-                </label>
+            {/* Teléfono con selector de país */}
+            <div>
+              <label className="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
+                {t.phone} {t.required}
+              </label>
+              <div className="flex gap-2">
+                {/* Selector de código de país */}
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
-                    <FaPhone size={14} />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCountryPicker(!showCountryPicker)}
+                    className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-2xl py-4 px-3 text-white hover:border-white/20 transition-colors min-w-[100px]"
+                  >
+                    <span className="text-lg">{selectedCountry.flag}</span>
+                    <span className="text-sm font-medium">{selectedCountry.code}</span>
+                    <FaChevronDown className="text-gray-500 text-xs ml-auto" />
+                  </button>
+
+                  {/* Dropdown de países */}
+                  {showCountryPicker && (
+                    <div className="absolute top-full left-0 mt-1 w-56 bg-[#111] border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                      {COUNTRY_CODES.map((country) => (
+                        <button
+                          key={country.code}
+                          type="button"
+                          onClick={() => {
+                            setCountryCode(country.code);
+                            setClientPhone('');
+                            setShowCountryPicker(false);
+                            setPhoneError(null);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors ${
+                            countryCode === country.code ? 'bg-white/10' : ''
+                          }`}
+                        >
+                          <span className="text-lg">{country.flag}</span>
+                          <span className="text-white text-sm flex-1 text-left">
+                            {language === 'en' ? country.nameEn : country.name}
+                          </span>
+                          <span className="text-gray-400 text-xs">{country.code}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input de teléfono */}
+                <div className="flex-1 relative">
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    placeholder={`${selectedCountry.digits} ${t.digitsRequired}`}
+                    maxLength={selectedCountry.digits}
+                    className={`w-full bg-white/5 border rounded-2xl py-4 px-4 text-white focus:outline-none transition-colors text-sm font-mono tracking-wider ${
+                      phoneError ? 'border-red-500/50' : isPhoneValid ? 'border-green-500/50' : 'border-white/10 focus:border-white/20'
+                    }`}
                     value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 pl-11 pr-4 py-4 text-white outline-none transition-all focus:border-white/20 focus:bg-white/10 placeholder:text-gray-600"
-                    placeholder="999..."
+                    onChange={e => handlePhoneChange(e.target.value)}
                   />
+                  {/* Indicador de dígitos */}
+                  <span className={`absolute right-3 top-4 text-xs ${
+                    isPhoneValid ? 'text-green-500' : 'text-gray-500'
+                  }`}>
+                    {clientPhone.length}/{selectedCountry.digits}
+                  </span>
                 </div>
               </div>
-              <div>
-                <label className="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
-                  Email {isEmailRequired && '*'}
-                </label>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
-                    <FaEnvelope size={14} />
-                  </div>
-                  <input
-                    type="email"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    className={`w-full rounded-2xl bg-white/5 pl-11 pr-4 py-4 text-white outline-none transition-all placeholder:text-gray-600 ${
-                      isEmailRequired && !clientEmail
-                        ? 'border-2 border-red-500/60'
-                        : 'border border-white/10 focus:border-white/20 focus:bg-white/10'
-                    }`}
-                    placeholder="optional"
-                  />
+
+              {/* Mensaje de error de teléfono */}
+              {phoneError && (
+                <p className="text-red-400 text-xs mt-1.5 ml-1">{phoneError}</p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="mb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
+                {t.email} {isEmailRequired ? t.required : `(${t.optional})`}
+              </label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                  <FaEnvelope size={14} />
                 </div>
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  className={`w-full rounded-2xl bg-white/5 pl-11 pr-4 py-4 text-white outline-none transition-all placeholder:text-gray-600 ${
+                    isEmailRequired && !clientEmail
+                      ? 'border-2 border-red-500/60'
+                      : 'border border-white/10 focus:border-white/20 focus:bg-white/10'
+                  }`}
+                  placeholder={t.optional}
+                />
               </div>
             </div>
           </motion.div>
@@ -583,7 +742,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
             className="rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] p-5 border border-white/10"
           >
             <label className="mb-4 block text-center text-xs font-bold uppercase tracking-wider text-gray-300">
-              How would you like to receive confirmation?
+              {t.howToReceiveConfirmation}
             </label>
             <div className="grid grid-cols-3 gap-3">
               {channels.map((ch) => {
@@ -621,7 +780,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
                     </span>
                     {ch.comingSoon && (
                       <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full whitespace-nowrap">
-                        Coming Soon
+                        Próximamente
                       </span>
                     )}
                     {isSelected && !isDisabled && (
@@ -643,7 +802,7 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
         <div className="sticky bottom-0 p-6 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent border-t border-white/5">
           <motion.button
             onClick={handleBooking}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isPhoneValid}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="flex w-full items-center justify-center gap-3 rounded-2xl py-4 text-base font-bold text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
@@ -655,17 +814,25 @@ export const BookingWidget: React.FC<BookingWidgetProps> = ({
             {isSubmitting ? (
               <>
                 <FaSpinner className="animate-spin text-lg" />
-                <span>Processing your appointment...</span>
+                <span>{t.processing}</span>
               </>
             ) : (
               <>
                 <FaCheckCircle className="text-lg" />
-                <span>Confirm Appointment</span>
+                <span>{t.confirmAppointment}</span>
               </>
             )}
           </motion.button>
         </div>
       </motion.div>
+
+      {/* Click outside to close country picker */}
+      {showCountryPicker && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowCountryPicker(false)}
+        />
+      )}
     </motion.div>
     </AnimatePresence>
   );

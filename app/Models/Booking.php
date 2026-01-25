@@ -10,6 +10,7 @@ class Booking extends Model
     protected $fillable = [
         'profile_id',
         'account_id',
+        'customer_id',
         'client_name',
         'client_phone',
         'client_email',
@@ -18,6 +19,7 @@ class Booking extends Model
         'service',
         'notes',
         'status',
+        'notification_channel',
         'ip_address',
         'user_agent',
     ];
@@ -41,6 +43,38 @@ class Booking extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    /**
+     * Relación con el customer
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Obtener el nombre del cliente (con fallback a campos legacy)
+     */
+    public function getCustomerName(): string
+    {
+        return $this->customer?->name ?? $this->client_name;
+    }
+
+    /**
+     * Obtener el teléfono del cliente (con fallback)
+     */
+    public function getCustomerPhone(): string
+    {
+        return $this->customer?->phone ?? $this->client_phone;
+    }
+
+    /**
+     * Obtener el email del cliente (con fallback)
+     */
+    public function getCustomerEmail(): ?string
+    {
+        return $this->customer?->email ?? $this->client_email;
     }
 
     /**
