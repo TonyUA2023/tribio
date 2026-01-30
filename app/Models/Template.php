@@ -41,6 +41,19 @@ class Template extends Model
     ];
 
     /**
+     * Campos calculados que se agregan al JSON
+     */
+    protected $appends = ['preview_url'];
+
+    /**
+     * Accessor: Genera la URL completa para el frontend
+     */
+    public function getPreviewUrlAttribute()
+    {
+        return $this->preview_image ? asset('storage/' . $this->preview_image) : null;
+    }
+
+    /**
      * Scope para filtrar solo activas
      * Uso: Template::active()->get();
      */

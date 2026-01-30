@@ -33,6 +33,7 @@ export interface Account {
     name: string;
     slug: string;
     type: 'company' | 'personal';
+    logo?: string | null;
     profile?: {
         id: number;
         name: string;
@@ -42,11 +43,19 @@ export interface Account {
     } | null;
 }
 
+export interface UserAccount {
+    id: number;
+    name: string;
+    slug: string;
+    logo: string | null;
+}
+
 export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
     account: Account | null;
+    userAccounts: UserAccount[];
     sidebarOpen: boolean;
     [key: string]: unknown;
 }

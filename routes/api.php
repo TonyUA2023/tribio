@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\WhatsAppWebhookController;
 use App\Http\Controllers\Api\BusinessDirectoryController;
+use App\Http\Controllers\Api\CulqiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,6 +56,25 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 // Plantillas públicas (Catálogo)
 Route::get('/templates', [TemplateController::class, 'index']);
 Route::get('/templates/{id}', [TemplateController::class, 'show']);
+
+/*
+|--------------------------------------------------------------------------
+| Culqi Payment Gateway - Pasarela de Pagos
+|--------------------------------------------------------------------------
+| Endpoints públicos para procesamiento de pagos con Culqi
+*/
+Route::prefix('payments')->group(function () {
+    // Obtener llave pública para el frontend
+    Route::get('/culqi-key', [CulqiController::class, 'getPublicKey']);
+    // Obtener planes disponibles
+    Route::get('/plans', [CulqiController::class, 'getPlans']);
+    // Procesar registro con pago (nuevo usuario)
+    Route::post('/register', [CulqiController::class, 'processRegistration']);
+    // Agregar nuevo negocio a usuario existente (soporta ambas auth: sanctum para API y web para sesión)
+    Route::post('/add-business', [CulqiController::class, 'addBusiness'])->middleware(['web', 'auth']);
+    // Webhook de Culqi (para notificaciones de eventos)
+    Route::post('/webhook', [CulqiController::class, 'handleWebhook']);
+});
 
 
 /*
@@ -101,6 +121,20 @@ Route::middleware('auth:sanctum')->group(function () {
     // Analytics
     Route::get('/account/analytics/overview', [AnalyticsController::class, 'overview']);
     Route::get('/account/analytics/visits', [AnalyticsController::class, 'visits']);
+
+    // =========================================================
+    // PAGOS Y SUSCRIPCIONES (Culqi)
+    // =========================================================
+    Route::prefix('account/billing')->group(function () {
+        // Suscripción actual
+        Route::get('/subscription', [CulqiController::class, 'getSubscription']);
+        // Historial de pagos
+        Route::get('/payments', [CulqiController::class, 'getPaymentHistory']);
+        // Realizar un pago (upgrade de plan)
+        Route::post('/upgrade', [CulqiController::class, 'upgradePlan']);
+        // Procesar pago único
+        Route::post('/charge', [CulqiController::class, 'processPayment']);
+    });
 
     // Posts (Gestión)
     Route::get('/account/posts', [PostsController::class, 'index']);      

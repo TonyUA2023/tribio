@@ -20,7 +20,9 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'last_name',
         'email',
+        'phone',
         'password',
         'role',
         'google_id',
@@ -105,5 +107,9 @@ class User extends Authenticatable
     public function canManageMultipleProfiles(): bool
     {
         return in_array($this->role, ['super_admin', 'admin']);
+    }
+
+    public function accounts() {
+        return $this->hasMany(Account::class);
     }
 }

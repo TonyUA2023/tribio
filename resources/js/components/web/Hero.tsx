@@ -178,7 +178,7 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Link href="#pricing">
+              <Link href="/precios">
                 <Button
                   size="lg"
                   className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white text-base px-8 h-12 rounded-full shadow-md shadow-sky-500/40 hover:shadow-lg hover:shadow-sky-500/50"
@@ -187,7 +187,7 @@ export default function Hero() {
                 </Button>
               </Link>
 
-              <Link href="#projects">
+              <Link href="/directorio">
                 <Button
                   size="lg"
                   className="

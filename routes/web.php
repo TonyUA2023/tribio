@@ -19,6 +19,10 @@ use App\Http\Controllers\ReviewManagementController;
 use App\Http\Controllers\Api\StoryController;
 // 👇 NUEVO CONTROLADOR PARA PEDIDOS PÚBLICOS
 use App\Http\Controllers\PublicCheckoutController;
+// 👇 NUEVO CONTROLADOR PARA ONBOARDING
+use App\Http\Controllers\OnboardingController;
+// 👇 CONTROLADOR PARA SELECCIÓN DE CUENTAS (MULTI-NEGOCIO)
+use App\Http\Controllers\AccountSelectorController;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,93 +59,116 @@ Route::get('/registro', function () {
     ]);
 })->name('checkout');
 
+// --- Páginas Legales ---
+Route::get('/terminos', function () {
+    return Inertia::render('web/TermsAndConditions');
+})->name('terms');
+
+Route::get('/privacidad', function () {
+    return Inertia::render('web/PrivacyPolicy');
+})->name('privacy');
+
 // --- RUTAS PROTEGIDAS (PANEL DE CLIENTE/DUEÑO) ---
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', [ClientDashboardController::class, 'index'])
-        ->name('dashboard');
+    // Rutas para selección de cuenta (multi-negocio)
+    Route::get('/select-account', [AccountSelectorController::class, 'show'])->name('select-account');
+    Route::post('/auth/select-account', [AccountSelectorController::class, 'select'])->name('auth.select-account');
 
-    // Rutas de reservas para clientes autenticados
-    Route::get('/api/bookings', [BookingController::class, 'index'])->name('api.bookings.index');
-    Route::patch('/api/bookings/{booking}/status', [BookingController::class, 'updateStatus'])->name('api.bookings.update-status');
-
-    // Módulo de Configuración
-    Route::prefix('settings')->name('settings.')->group(function () {
-        Route::get('/business', [BusinessSettingsController::class, 'index'])->name('business');
-        Route::post('/business', [BusinessSettingsController::class, 'update'])->name('business.update');
-
-        Route::get('/page', [PageSettingsController::class, 'index'])->name('page');
-        Route::post('/page/upload-gallery', [PageSettingsController::class, 'uploadGalleryMedia'])->name('page.upload-gallery');
-        Route::post('/page/upload-loading-screen', [PageSettingsController::class, 'uploadLoadingScreen'])->name('page.upload-loading-screen');
-        Route::post('/page/upload-profile-logo', [PageSettingsController::class, 'uploadProfileLogo'])->name('page.upload-profile-logo');
-        Route::post('/page/upload-cover-photo', [PageSettingsController::class, 'uploadCoverPhoto'])->name('page.upload-cover-photo');
-        Route::delete('/page/media/{media}', [PageSettingsController::class, 'deleteMedia'])->name('page.delete-media');
-        Route::post('/page/reorder-gallery', [PageSettingsController::class, 'reorderGallery'])->name('page.reorder-gallery');
+    // Rutas para el proceso de Onboarding.
+    // Estas deben estar fuera del middleware 'onboarding.check'.
+    Route::prefix('onboarding')->name('onboarding.')->group(function () {
+        Route::get('/', [OnboardingController::class, 'show'])->name('show');
+        Route::post('/', [OnboardingController::class, 'store'])->name('store');
     });
 
-    // Módulo de Citas
-    Route::get('/appointments', [AppointmentsController::class, 'index'])
-        ->name('appointments');
-    Route::patch('/appointments/{booking}/status', [AppointmentsController::class, 'updateStatus'])
-        ->name('appointments.update-status');
+    // Grupo de rutas que requieren que el onboarding esté completo.
+    Route::middleware(['onboarding.check'])->group(function () {
+        Route::get('dashboard', [ClientDashboardController::class, 'index'])
+            ->name('dashboard');
 
-    // Módulo de Clientes
-    Route::get('/clients', [ClientsController::class, 'index'])
-        ->name('clients');
+        // Rutas de reservas para clientes autenticados
+        Route::get('/api/bookings', [BookingController::class, 'index'])->name('api.bookings.index');
+        Route::patch('/api/bookings/{booking}/status', [BookingController::class, 'updateStatus'])->name('api.bookings.update-status');
 
-    // Módulo de Reseñas
-    Route::prefix('reviews')->name('reviews.')->group(function () {
-        Route::get('/manage', [ReviewManagementController::class, 'index'])->name('manage');
-        Route::patch('/{review}/toggle-featured', [ReviewManagementController::class, 'toggleFeatured'])->name('toggle-featured');
-        Route::post('/update-order', [ReviewManagementController::class, 'updateOrder'])->name('update-order');
-        Route::delete('/{review}', [ReviewManagementController::class, 'destroy'])->name('destroy');
-        Route::patch('/{review}/approve', [ReviewManagementController::class, 'approve'])->name('approve');
-        Route::patch('/{review}/reject', [ReviewManagementController::class, 'reject'])->name('reject');
-    });
+        // Módulo de Configuración
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::get('/business', [BusinessSettingsController::class, 'index'])->name('business');
+            Route::post('/business', [BusinessSettingsController::class, 'update'])->name('business.update');
 
-    // Módulo de Historias (Stories)
-    Route::prefix('stories')->name('stories.')->group(function () {
-        Route::get('/', function () {
-            return Inertia::render('stories/index');
-        })->name('index');
+            Route::get('/page', [PageSettingsController::class, 'index'])->name('page');
+            Route::post('/page/upload-gallery', [PageSettingsController::class, 'uploadGalleryMedia'])->name('page.upload-gallery');
+            Route::post('/page/upload-loading-screen', [PageSettingsController::class, 'uploadLoadingScreen'])->name('page.upload-loading-screen');
+            Route::post('/page/upload-profile-logo', [PageSettingsController::class, 'uploadProfileLogo'])->name('page.upload-profile-logo');
+            Route::post('/page/upload-cover-photo', [PageSettingsController::class, 'uploadCoverPhoto'])->name('page.upload-cover-photo');
+            Route::delete('/page/media/{media}', [PageSettingsController::class, 'deleteMedia'])->name('page.delete-media');
+            Route::post('/page/reorder-gallery', [PageSettingsController::class, 'reorderGallery'])->name('page.reorder-gallery');
+        });
 
-        Route::get('/create', function () {
-            $user = auth()->user();
-            $profile = $user->account?->profiles->first();
+        // Módulo de Citas
+        Route::get('/appointments', [AppointmentsController::class, 'index'])
+            ->name('appointments');
+        Route::patch('/appointments/{booking}/status', [AppointmentsController::class, 'updateStatus'])
+            ->name('appointments.update-status');
 
-            return Inertia::render('stories/create', [
-                'profile' => $profile,
-            ]);
-        })->name('create');
-    });
+        // Módulo de Clientes
+        Route::get('/clients', [ClientsController::class, 'index'])
+            ->name('clients');
 
-    // API de Stories (autenticadas con sesión web)
-    Route::prefix('api')->group(function () {
-        Route::get('/my-stories', [StoryController::class, 'myStories']);
-        Route::post('/stories', [StoryController::class, 'store']);
-        Route::delete('/stories/{story}', [StoryController::class, 'destroy']);
-        Route::get('/stories/{story}/analytics', [StoryController::class, 'analytics']);
-    });
+        // Módulo de Reseñas
+        Route::prefix('reviews')->name('reviews.')->group(function () {
+            Route::get('/manage', [ReviewManagementController::class, 'index'])->name('manage');
+            Route::patch('/{review}/toggle-featured', [ReviewManagementController::class, 'toggleFeatured'])->name('toggle-featured');
+            Route::post('/update-order', [ReviewManagementController::class, 'updateOrder'])->name('update-order');
+            Route::delete('/{review}', [ReviewManagementController::class, 'destroy'])->name('destroy');
+            Route::patch('/{review}/approve', [ReviewManagementController::class, 'approve'])->name('approve');
+            Route::patch('/{review}/reject', [ReviewManagementController::class, 'reject'])->name('reject');
+        });
 
-    // Módulo de Productos (Gestión Admin)
-    Route::prefix('products')->name('products.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\ProductController::class, 'index'])->name('index');
-        Route::post('/', [\App\Http\Controllers\ProductController::class, 'store'])->name('store');
-        Route::put('/{product}', [\App\Http\Controllers\ProductController::class, 'update'])->name('update');
-        Route::delete('/{product}', [\App\Http\Controllers\ProductController::class, 'destroy'])->name('destroy');
-        Route::patch('/{product}/toggle-availability', [\App\Http\Controllers\ProductController::class, 'toggleAvailability'])->name('toggle-availability');
-        Route::patch('/{product}/toggle-featured', [\App\Http\Controllers\ProductController::class, 'toggleFeatured'])->name('toggle-featured');
-        Route::post('/update-order', [\App\Http\Controllers\ProductController::class, 'updateOrder'])->name('update-order');
-    });
+        // Módulo de Historias (Stories)
+        Route::prefix('stories')->name('stories.')->group(function () {
+            Route::get('/', function () {
+                return Inertia::render('stories/index');
+            })->name('index');
 
-    // Módulo de Pedidos (Gestión Admin)
-    Route::prefix('orders')->name('orders.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\OrderController::class, 'index'])->name('index');
-        Route::get('/{order}', [\App\Http\Controllers\OrderController::class, 'show'])->name('show');
-        Route::patch('/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('update-status');
-        Route::patch('/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('update-payment-status');
-        Route::patch('/{order}/notes', [\App\Http\Controllers\OrderController::class, 'updateNotes'])->name('update-notes');
-        Route::delete('/{order}', [\App\Http\Controllers\OrderController::class, 'destroy'])->name('destroy');
-        Route::get('/stats/dashboard', [\App\Http\Controllers\OrderController::class, 'stats'])->name('stats');
+            Route::get('/create', function () {
+                $user = auth()->user();
+                $profile = $user->account?->profiles->first();
+
+                return Inertia::render('stories/create', [
+                    'profile' => $profile,
+                ]);
+            })->name('create');
+        });
+
+        // API de Stories (autenticadas con sesión web)
+        Route::prefix('api')->group(function () {
+            Route::get('/my-stories', [StoryController::class, 'myStories']);
+            Route::post('/stories', [StoryController::class, 'store']);
+            Route::delete('/stories/{story}', [StoryController::class, 'destroy']);
+            Route::get('/stories/{story}/analytics', [StoryController::class, 'analytics']);
+        });
+
+        // Módulo de Productos (Gestión Admin)
+        Route::prefix('products')->name('products.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\ProductController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\ProductController::class, 'store'])->name('store');
+            Route::put('/{product}', [\App\Http\Controllers\ProductController::class, 'update'])->name('update');
+            Route::delete('/{product}', [\App\Http\Controllers\ProductController::class, 'destroy'])->name('destroy');
+            Route::patch('/{product}/toggle-availability', [\App\Http\Controllers\ProductController::class, 'toggleAvailability'])->name('toggle-availability');
+            Route::patch('/{product}/toggle-featured', [\App\Http\Controllers\ProductController::class, 'toggleFeatured'])->name('toggle-featured');
+            Route::post('/update-order', [\App\Http\Controllers\ProductController::class, 'updateOrder'])->name('update-order');
+        });
+
+        // Módulo de Pedidos (Gestión Admin)
+        Route::prefix('orders')->name('orders.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\OrderController::class, 'index'])->name('index');
+            Route::get('/{order}', [\App\Http\Controllers\OrderController::class, 'show'])->name('show');
+            Route::patch('/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('update-status');
+            Route::patch('/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('update-payment-status');
+            Route::patch('/{order}/notes', [\App\Http\Controllers\OrderController::class, 'updateNotes'])->name('update-notes');
+            Route::delete('/{order}', [\App\Http\Controllers\OrderController::class, 'destroy'])->name('destroy');
+            Route::get('/stats/dashboard', [\App\Http\Controllers\OrderController::class, 'stats'])->name('stats');
+        });
     });
 });
 

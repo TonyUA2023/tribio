@@ -58,4 +58,15 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'culqi' => [
+        // Llave pública (usada en frontend para tokenizar tarjetas)
+        'public_key' => env('CULQI_PUBLIC_KEY'),
+        // Llave secreta (usada en backend para crear cargos)
+        'secret_key' => env('CULQI_SECRET_KEY'),
+        // URL base de la API
+        'api_url' => 'https://api.culqi.com/v2',
+        // URL para crear tokens (usa la llave pública)
+        'secure_url' => 'https://secure.culqi.com/v2',
+    ],
+
 ];

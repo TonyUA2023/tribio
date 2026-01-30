@@ -49,25 +49,6 @@ type Plan = {
 
 const plans: Plan[] = [
     {
-        id: 'personal',
-        name: 'Personal',
-        label: 'Tu tarjeta digital siempre lista.',
-        description:
-            'Para creadores, freelancers y profesionales que solo necesitan un perfil bonito y directo.',
-        priceMonthly: 0,
-        priceYearly: 0,
-        note: 'Ideal para compartir tus redes, contactos y una breve descripción.',
-        href: '/register',
-        cta: 'Crear cuenta gratis',
-        features: [
-            'Perfil personal Tribio con foto, nombre y descripción.',
-            'Un enlace único para compartir tu perfil en cualquier red.',
-            'Botones para tus redes sociales y enlaces importantes.',
-            'Compatible con tarjeta NFC Tribio para compartir tus datos.',
-            'Sin módulos de stock, ventas ni gestión de equipo.'
-        ]
-    },
-    {
         id: 'pro',
         name: 'Pro',
         label: 'Todo tu negocio en un solo link.',
@@ -76,7 +57,7 @@ const plans: Plan[] = [
         priceMonthly: 29,
         priceYearly: 24,
         note: 'Incluye app de gestión Tribio para administrar productos, pedidos, clientes y equipo.',
-        href: '/register',
+        href: '/registro',
         cta: 'Comenzar con Tribio Pro',
         badge: 'Más elegido por negocios',
         highlight: true,
@@ -104,7 +85,7 @@ const plans: Plan[] = [
         priceMonthly: null,
         priceYearly: null,
         note: 'Te acompañamos en la implementación, capacitación y reportes a medida.',
-        href: '/contacto',
+        href: 'https://wa.link/pxa78e',
         cta: 'Hablar con un asesor',
         features: [
             'Todo lo incluido en Tribio Pro.',

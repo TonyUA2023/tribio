@@ -1,6 +1,6 @@
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
+import { NavBusinessSwitcher } from '@/components/nav-business-switcher';
 import {
     Sidebar,
     SidebarContent,
@@ -88,12 +88,10 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <div className="flex items-center justify-between gap-2 px-2 py-2">
+                <div className="flex items-center gap-2 px-2 py-2">
                     <AppearanceToggleDropdown />
-                    <div className="flex-1">
-                        <NavUser />
-                    </div>
                 </div>
+                <NavBusinessSwitcher />
             </SidebarFooter>
         </Sidebar>
     );

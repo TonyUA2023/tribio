@@ -35,7 +35,9 @@
       "Bash(powershell -Command \"\\(Get-Content CarWashTemplate.tsx\\) -replace ''href=\\\\{\\\\`https://wa\\\\.me/$\\\\{normalizedLinks\\\\.whatsapp\\\\}\\\\`\\\\}'', ''href={normalizedLinks.whatsapp}'' | Set-Content CarWashTemplate.tsx\")",
       "Bash(mysql:*)",
       "Bash(npx tsc:*)",
-      "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\resources\\\\js\\\\components\\\\landing\\\\BusinessDirectory.tsx\")"
+      "Bash(del \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\resources\\\\js\\\\components\\\\landing\\\\BusinessDirectory.tsx\")",
+      "Bash(Get-Content \"d:\\\\JSTACK CLIENTES\\\\DESARROLLO SISTEMA NFC\\\\jstackhub\\\\storage\\\\logs\\\\laravel.log\" -Tail 100)",
+      "Bash(Select-String -Pattern \"Culqi|charge|error\" -CaseSensitive:$false)"
     ]
   }
 }

@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\EnsureUserIsAdminOrAbove;
+use App\Http\Middleware\CheckOnboardingStatus;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -37,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'super_admin' => EnsureUserIsSuperAdmin::class,
             'admin_or_above' => EnsureUserIsAdminOrAbove::class,
             'admin' => EnsureUserIsAdmin::class, // Mantener compatibilidad (ahora apunta a super_admin)
+            'onboarding.check' => CheckOnboardingStatus::class, // <-- ¡AÑADE ESTA LÍNEA!
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
