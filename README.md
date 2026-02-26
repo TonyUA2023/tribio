@@ -6,6 +6,12 @@ Video: https://drive.google.com/file/d/16DrNZ2IOcy8d53iRxF3-1xDVl7WUkTQq/view?us
 
 Informe: https://drive.google.com/file/d/168VlgZhy5qZTEbyZYM0huBBLLGm1QqIi/view?usp=drive_link
 
+Modelo ML: https://streamlit.io/cloud
+
+API Modelo ML: https://tonyua-tribio.hf.space/docs
+
+TRIBIO PLATAFORMA: https://tribio.info/
+
 ---
 
 ## Tabla de Contenidos
