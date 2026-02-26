@@ -3,6 +3,7 @@
 Plataforma SaaS multi-tenant que combina tarjetas NFC inteligentes con tiendas en línea, perfiles de negocio personalizables y herramientas de gestión empresarial.
 
 Video: https://drive.google.com/file/d/16DrNZ2IOcy8d53iRxF3-1xDVl7WUkTQq/view?usp=sharing
+
 Informe: https://drive.google.com/file/d/168VlgZhy5qZTEbyZYM0huBBLLGm1QqIi/view?usp=drive_link
 
 ---
