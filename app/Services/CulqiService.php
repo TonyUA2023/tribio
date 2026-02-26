@@ -12,12 +12,33 @@ class CulqiService
     protected string $apiUrl;
     protected string $secureUrl;
 
-    public function __construct()
+    public function __construct(?string $publicKey = null, ?string $secretKey = null)
     {
-        $this->publicKey = config('services.culqi.public_key');
-        $this->secretKey = config('services.culqi.secret_key');
+        $this->publicKey = $publicKey ?? config('services.culqi.public_key') ?? '';
+        $this->secretKey = $secretKey ?? config('services.culqi.secret_key') ?? '';
         $this->apiUrl = config('services.culqi.api_url');
         $this->secureUrl = config('services.culqi.secure_url');
+    }
+
+    /**
+     * Create a CulqiService instance using an Account's payment_settings.
+     * Falls back to global config if account has no Culqi credentials.
+     */
+    public static function forAccount(\App\Models\Account $account): self
+    {
+        $settings = $account->payment_settings['culqi'] ?? [];
+        $publicKey = !empty($settings['public_key']) ? $settings['public_key'] : null;
+        $secretKey = !empty($settings['secret_key']) ? $settings['secret_key'] : null;
+
+        return new self($publicKey, $secretKey);
+    }
+
+    /**
+     * Check if Culqi is configured (has valid keys).
+     */
+    public function isConfigured(): bool
+    {
+        return !empty($this->publicKey) && !empty($this->secretKey);
     }
 
     /**
@@ -81,7 +102,7 @@ class CulqiService
             return [
                 'success' => false,
                 'error' => $data,
-                'message' => $data['user_message'] ?? $data['merchant_message'] ?? 'Pago rechazado por el banco',
+                'message' => $data['merchant_message'] ?? $data['user_message'] ?? 'Pago rechazado por el banco',
             ];
 
         } catch (\Exception $e) {
@@ -418,6 +439,81 @@ class CulqiService
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
+                'message' => 'Error de conexion con la pasarela de pagos',
+            ];
+        }
+    }
+
+    /**
+     * Crear una orden en Culqi (requerida para pagos con Yape, PagoEfectivo, etc.)
+     *
+     * @param int $amount Monto en centimos (ej: 2900 = S/29.00)
+     * @param string $currencyCode Codigo de moneda (PEN o USD)
+     * @param string $description Descripcion de la compra
+     * @param string $orderNumber Numero de orden interno
+     * @param array $clientDetails Datos del cliente (first_name, last_name, email, phone_number)
+     * @param int|null $expirationDate Timestamp de expiracion (null = 24h por defecto de Culqi)
+     * @param array $metadata Datos adicionales
+     * @return array
+     */
+    public function createOrder(
+        int $amount,
+        string $currencyCode,
+        string $description,
+        string $orderNumber,
+        array $clientDetails = [],
+        ?int $expirationDate = null,
+        array $metadata = []
+    ): array {
+        try {
+            $payload = [
+                'amount' => $amount,
+                'currency_code' => $currencyCode,
+                'description' => substr($description, 0, 80),
+                'order_number' => $orderNumber,
+                'client_details' => $clientDetails,
+                'confirm' => true,
+            ];
+
+            if ($expirationDate) {
+                $payload['expiration_date'] = $expirationDate;
+            } else {
+                // Expirar en 1 hora
+                $payload['expiration_date'] = time() + 3600;
+            }
+
+            if (!empty($metadata)) {
+                $payload['metadata'] = $metadata;
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->secretKey,
+                'Content-Type' => 'application/json',
+            ])->post($this->apiUrl . '/orders', $payload);
+
+            $data = $response->json();
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $data,
+                    'order_id' => $data['id'] ?? null,
+                ];
+            }
+
+            Log::error('Culqi crear orden error:', ['error' => $data]);
+
+            return [
+                'success' => false,
+                'error' => $data,
+                'message' => $data['merchant_message'] ?? $data['user_message'] ?? 'Error al crear la orden de pago',
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Culqi create order error', ['message' => $e->getMessage()]);
+
+            return [
+                'success' => false,
                 'message' => 'Error de conexion con la pasarela de pagos',
             ];
         }

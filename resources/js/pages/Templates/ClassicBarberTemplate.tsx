@@ -57,9 +57,22 @@ export interface ClassicBarberConfig {
   accountSlug: string;
 }
 
+interface SeoData {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  url?: string;
+  image?: string;
+  type?: string;
+  site_name?: string;
+  structured_data?: Record<string, unknown>;
+}
+
 interface ClassicBarberTemplateProps {
   config: ClassicBarberConfig;
   customizations?: any;
+  seo?: SeoData;
+  account?: { id: number; slug: string; name: string };
 }
 
 const resolveMediaUrl = (raw?: string) => {
@@ -137,7 +150,7 @@ const VintageServiceCard = ({ service, icon, color }: { service: string; icon: R
   </div>
 );
 
-export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ config, customizations }) => {
+export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ config, customizations, seo, account }) => {
   const finalConfig = useMemo(() => ({
     ...config,
     ...(customizations || {}),
@@ -189,12 +202,36 @@ export const ClassicBarberTemplate: React.FC<ClassicBarberTemplateProps> = ({ co
         />
       )}
 
-      <Head title={businessName}>
-        <meta name="description" content={businessTitle} />
-        <link rel="canonical" href={pageUrl} />
-        <meta property="og:title" content={businessName} />
-        <meta property="og:description" content={businessTitle} />
-        {ogImage && <meta property="og:image" content={ogImage} />}
+      <Head title={seo?.title || businessName}>
+        {/* SEO Meta Tags */}
+        <meta name="description" content={seo?.description || businessBio || businessTitle} />
+        <meta name="keywords" content={seo?.keywords || `${businessName}, barbería, cortes, TRIBIO`} />
+        <link rel="canonical" href={seo?.url || pageUrl} />
+
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content={seo?.type || 'business.business'} />
+        <meta property="og:title" content={seo?.title || businessName} />
+        <meta property="og:description" content={seo?.description || businessBio || businessTitle} />
+        <meta property="og:url" content={seo?.url || pageUrl} />
+        <meta property="og:site_name" content={seo?.site_name || 'TRIBIO'} />
+        <meta property="og:locale" content="es_PE" />
+        {(seo?.image || ogImage) && <meta property="og:image" content={seo?.image || ogImage} />}
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo?.title || businessName} />
+        <meta name="twitter:description" content={seo?.description || businessBio || businessTitle} />
+        {(seo?.image || ogImage) && <meta name="twitter:image" content={seo?.image || ogImage} />}
+
+        {/* Theme */}
+        <meta name="theme-color" content={primaryColor} />
+
+        {/* Structured Data */}
+        {seo?.structured_data && (
+          <script type="application/ld+json">
+            {JSON.stringify(seo.structured_data)}
+          </script>
+        )}
       </Head>
 
       <div className="relative min-h-screen">

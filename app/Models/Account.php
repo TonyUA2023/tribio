@@ -19,7 +19,12 @@ class Account extends Model
         'user_id',
         'plan_id',
         'business_category_id',
+        'business_type_id',
         'active_template_id',
+        'store_template_id',
+        'store_template_config',
+        'personal_template_config',
+        'payment_settings',
         'name',
         'type',
         'slug',
@@ -34,6 +39,15 @@ class Account extends Model
         'instagram',
         'tiktok',
         'facebook'
+    ];
+
+    /**
+     * Conversiones automáticas (Casting)
+     */
+    protected $casts = [
+        'store_template_config' => 'array',
+        'personal_template_config' => 'array',
+        'payment_settings' => 'array',
     ];
 
     /**
@@ -74,6 +88,46 @@ class Account extends Model
     public function businessCategory(): BelongsTo
     {
         return $this->belongsTo(BusinessCategory::class);
+    }
+
+    /**
+     * Define la relación: Una Cuenta pertenece a un Tipo de Negocio.
+     */
+    public function businessType(): BelongsTo
+    {
+        return $this->belongsTo(BusinessType::class);
+    }
+
+    /**
+     * Helper: Verificar si la cuenta es de tipo Tienda
+     */
+    public function isStore(): bool
+    {
+        return $this->businessType?->slug === 'store';
+    }
+
+    /**
+     * Helper: Verificar si la cuenta es de tipo Citas
+     */
+    public function isAppointments(): bool
+    {
+        return $this->businessType?->slug === 'appointments';
+    }
+
+    /**
+     * Helper: Verificar si la cuenta es de tipo Restaurante
+     */
+    public function isRestaurant(): bool
+    {
+        return $this->businessType?->slug === 'restaurant';
+    }
+
+    /**
+     * Helper: Verificar si la cuenta tiene tipo de negocio seleccionado
+     */
+    public function hasBusinessType(): bool
+    {
+        return !is_null($this->business_type_id);
     }
 
     /**
@@ -130,6 +184,14 @@ class Account extends Model
         return $this->belongsTo(Template::class, 'active_template_id');
     }
 
+    /**
+     * Define la relación: Una Cuenta tiene una Plantilla de Tienda activa.
+     */
+    public function storeTemplate()
+    {
+        return $this->belongsTo(Template::class, 'store_template_id');
+    }
+
     public function templates()
     {
         return $this->belongsToMany(Template::class, 'account_template')
@@ -150,4 +212,27 @@ class Account extends Model
         return $this->hasMany(Customer::class);
     }
 
+    /**
+     * Get all products for this account.
+     */
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Get all product categories for this account.
+     */
+    public function productCategories(): HasMany
+    {
+        return $this->hasMany(ProductCategory::class);
+    }
+
+    /**
+     * Get all brands for this account.
+     */
+    public function brands(): HasMany
+    {
+        return $this->hasMany(Brand::class);
+    }
 }

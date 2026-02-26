@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\GetsCurrentAccount;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
@@ -14,12 +15,14 @@ use App\Services\BrevoSmsService; // Importamos el servicio de SMS
 
 class OrderController extends Controller
 {
+    use GetsCurrentAccount;
+
     /**
      * Mostrar lista de pedidos
      */
     public function index(Request $request)
     {
-        $account = Auth::user()->account;
+        $account = $this->getCurrentAccount(Auth::user());
 
         $query = Order::where('account_id', $account->id)->with('items.product');
 
@@ -62,7 +65,7 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         // Verificar que el pedido pertenece a la cuenta del usuario
-        if ($order->account_id !== Auth::user()->account->id) {
+        if ($order->account_id !== $this->getCurrentAccount(Auth::user())->id) {
             abort(403, 'No autorizado');
         }
 
@@ -79,7 +82,7 @@ class OrderController extends Controller
     public function updateStatus(Request $request, Order $order, BrevoSmsService $smsService)
     {
         // Verificar que el pedido pertenece a la cuenta del usuario
-        if ($order->account_id !== Auth::user()->account->id) {
+        if ($order->account_id !== $this->getCurrentAccount(Auth::user())->id) {
             abort(403, 'No autorizado');
         }
 
@@ -178,7 +181,7 @@ class OrderController extends Controller
     public function updatePaymentStatus(Request $request, Order $order)
     {
         // Verificar que el pedido pertenece a la cuenta del usuario
-        if ($order->account_id !== Auth::user()->account->id) {
+        if ($order->account_id !== $this->getCurrentAccount(Auth::user())->id) {
             abort(403, 'No autorizado');
         }
 
@@ -196,7 +199,7 @@ class OrderController extends Controller
      */
     public function stats(Request $request)
     {
-        $account = Auth::user()->account;
+        $account = $this->getCurrentAccount(Auth::user());
 
         // Período (por defecto: últimos 30 días)
         $dateFrom = $request->input('date_from', now()->subDays(30));
@@ -281,7 +284,7 @@ class OrderController extends Controller
     public function destroy(Order $order)
     {
         // Verificar que el pedido pertenece a la cuenta del usuario
-        if ($order->account_id !== Auth::user()->account->id) {
+        if ($order->account_id !== $this->getCurrentAccount(Auth::user())->id) {
             abort(403, 'No autorizado');
         }
 
@@ -296,7 +299,7 @@ class OrderController extends Controller
     public function updateNotes(Request $request, Order $order)
     {
         // Verificar que el pedido pertenece a la cuenta del usuario
-        if ($order->account_id !== Auth::user()->account->id) {
+        if ($order->account_id !== $this->getCurrentAccount(Auth::user())->id) {
             abort(403, 'No autorizado');
         }
 

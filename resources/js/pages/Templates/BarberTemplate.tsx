@@ -63,9 +63,22 @@ export interface AcademyConfig {
   accountSlug: string;
 }
 
+interface SeoData {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  url?: string;
+  image?: string;
+  type?: string;
+  site_name?: string;
+  structured_data?: Record<string, unknown>;
+}
+
 interface AcademyProps {
   config: AcademyConfig;
   customizations?: any;
+  seo?: SeoData;
+  account?: { id: number; slug: string; name: string };
 }
 
 // --- UTIL ---

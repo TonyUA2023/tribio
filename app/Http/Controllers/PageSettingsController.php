@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\GetsCurrentAccount;
 use App\Models\ProfileMedia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -9,30 +10,15 @@ use Inertia\Inertia;
 
 class PageSettingsController extends Controller
 {
+    use GetsCurrentAccount;
     public function index(Request $request)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return redirect()->route('dashboard');
         }
-
-        // Obtener medios de galería
-        $galleryMedia = ProfileMedia::where('account_id', $account->id)
-            ->gallery()
-            ->get()
-            ->map(function ($media) {
-                return [
-                    'id' => $media->id,
-                    'type' => $media->media_type,
-                    'url' => $media->url,
-                    'file_name' => $media->file_name,
-                    'file_size' => $media->formatted_size,
-                    'caption' => $media->caption,
-                    'order' => $media->order,
-                ];
-            });
 
         // Obtener logo de pantalla de carga
         $loadingScreenMedia = ProfileMedia::where('account_id', $account->id)
@@ -46,7 +32,7 @@ class PageSettingsController extends Controller
             'file_name' => $loadingScreenMedia->file_name,
         ] : null;
 
-        // Obtener logo de la página (el círculo con ML BARBER)
+        // Obtener logo de la página (el círculo)
         $profileLogoMedia = ProfileMedia::where('account_id', $account->id)
             ->where('type', 'profile_logo')
             ->first();
@@ -71,38 +57,10 @@ class PageSettingsController extends Controller
         ] : null;
 
         return Inertia::render('settings/page', [
-            'galleryMedia' => $galleryMedia,
             'loadingScreen' => $loadingScreen,
             'profileLogo' => $profileLogo,
             'coverPhoto' => $coverPhoto,
         ]);
-    }
-
-    public function uploadGalleryMedia(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:jpg,jpeg,png,gif,webp,heic,mp4,mov,avi,wmv|max:102400', // 100MB
-        ]);
-
-        $user = $request->user();
-        $account = $user->account()->first();
-
-        if (!$account) {
-            return response()->json(['error' => 'Account not found'], 404);
-        }
-
-        $file = $request->file('file');
-        $isImage = str_starts_with($file->getMimeType(), 'image/');
-        $isVideo = str_starts_with($file->getMimeType(), 'video/');
-
-        // Procesar el archivo
-        if ($isImage) {
-            return $this->processImage($file, $account, 'gallery');
-        } elseif ($isVideo) {
-            return $this->processVideo($file, $account, 'gallery');
-        }
-
-        return response()->json(['error' => 'Formato no soportado'], 400);
     }
 
     public function uploadLoadingScreen(Request $request)
@@ -112,7 +70,7 @@ class PageSettingsController extends Controller
         ]);
 
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'Account not found'], 404);
@@ -137,7 +95,7 @@ class PageSettingsController extends Controller
         ]);
 
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'Account not found'], 404);
@@ -162,7 +120,7 @@ class PageSettingsController extends Controller
         ]);
 
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'Account not found'], 404);
@@ -183,7 +141,7 @@ class PageSettingsController extends Controller
     public function deleteMedia(Request $request, ProfileMedia $media)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if ($media->account_id !== $account->id) {
             abort(403, 'No autorizado');
@@ -193,29 +151,6 @@ class PageSettingsController extends Controller
         $media->delete();
 
         return back()->with('success', 'Medio eliminado correctamente');
-    }
-
-    public function reorderGallery(Request $request)
-    {
-        $request->validate([
-            'order' => 'required|array',
-            'order.*' => 'required|integer|exists:profile_media,id',
-        ]);
-
-        $user = $request->user();
-        $account = $user->account()->first();
-
-        // Actualizar el orden basado en el array de IDs
-        foreach ($request->order as $index => $mediaId) {
-            ProfileMedia::where('id', $mediaId)
-                ->where('account_id', $account->id)
-                ->update(['order' => $index]);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Orden actualizado correctamente',
-        ]);
     }
 
     private function processImage($file, $account, $type)

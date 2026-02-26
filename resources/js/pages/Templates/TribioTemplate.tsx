@@ -66,9 +66,22 @@ export interface TribioTemplateConfig {
   isPremium?: boolean;
 }
 
+interface SeoData {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  url?: string;
+  image?: string;
+  type?: string;
+  site_name?: string;
+  structured_data?: Record<string, unknown>;
+}
+
 interface TribioTemplateProps {
   config: TribioTemplateConfig;
   customizations?: any;
+  seo?: SeoData;
+  account?: { id: number; slug: string; name: string };
 }
 
 // --- UTILIDADES ---
@@ -238,7 +251,7 @@ const FeatureCard = ({
 );
 
 // --- COMPONENTE PRINCIPAL ---
-export const TribioTemplate: React.FC<TribioTemplateProps> = ({ config, customizations }) => {
+export const TribioTemplate: React.FC<TribioTemplateProps> = ({ config, customizations, seo, account }) => {
   const finalConfig = useMemo(() => ({
     ...config,
     ...(customizations || {}),
@@ -292,9 +305,36 @@ export const TribioTemplate: React.FC<TribioTemplateProps> = ({ config, customiz
         />
       )}
 
-      <Head title={businessName}>
+      <Head title={seo?.title || businessName}>
+        <meta name="description" content={seo?.description || businessBio || `${businessName} - ${businessTitle || 'Perfil Profesional'}`} />
+        <meta name="keywords" content={seo?.keywords || `${businessName}, ${businessTitle || ''}, TRIBIO, perfil profesional`} />
+        <link rel="canonical" href={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+
+        <meta property="og:type" content={seo?.type || 'business.business'} />
+        <meta property="og:title" content={seo?.title || businessName} />
+        <meta property="og:description" content={seo?.description || businessBio || businessTitle || ''} />
+        <meta property="og:url" content={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+        <meta property="og:site_name" content={seo?.site_name || 'TRIBIO'} />
+        <meta property="og:locale" content="es_PE" />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta property="og:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo?.title || businessName} />
+        <meta name="twitter:description" content={seo?.description || businessBio || businessTitle || ''} />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta name="twitter:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <meta name="theme-color" content="#ffffff" />
+
+        {seo?.structured_data && (
+          <script type="application/ld+json">
+            {JSON.stringify(seo.structured_data)}
+          </script>
+        )}
       </Head>
 
       {/* Container Principal */}

@@ -15,6 +15,7 @@ import {
   FaInstagram,
   FaTiktok,
   FaChevronRight,
+  FaStore,
 } from 'react-icons/fa';
 
 import { LoadingScreen } from '@/components/LoadingScreen';
@@ -84,8 +85,15 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+interface Account {
+  id: number;
+  slug: string;
+  name: string;
+}
+
 interface PageProps extends Record<string, unknown> {
   profile: Profile;
+  account: Account;
   seo?: SeoData;
 }
 
@@ -493,7 +501,7 @@ const CartSheet = ({
 
 // --- Main Component ---
 const AmateCard = () => {
-  const { profile, seo } = usePage<PageProps>().props;
+  const { profile, account, seo } = usePage<PageProps>().props;
 
   const primaryGreen = '#9dc74a';
 
@@ -1038,6 +1046,24 @@ const AmateCard = () => {
 
         {/* Gradient Footer */}
         <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent pointer-events-none z-30 md:absolute md:rounded-b-[40px]" />
+
+        {/* Ver Tienda Completa FAB */}
+        <a
+          href={`/${account?.slug || 'amate'}/tienda`}
+          className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center
+          bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-900/50 border-2 border-purple-400/30
+          hover:scale-110 active:scale-95 transition-all duration-300
+          md:absolute md:bottom-24 md:right-6 group"
+          title="Ver Tienda Completa"
+        >
+          <FaStore size={24} />
+          {/* Tooltip */}
+          <span className="absolute right-16 bg-slate-900 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap
+                         opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none
+                         border border-white/10 shadow-xl">
+            Ver Tienda Completa
+          </span>
+        </a>
 
         {/* WhatsApp FAB */}
         <a

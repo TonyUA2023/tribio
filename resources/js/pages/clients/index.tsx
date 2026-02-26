@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/react';
 
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
+import MlInsightCard, { type MlPrediction } from '@/components/MlInsightCard';
 import {
     Bell,
     Calendar,
@@ -46,6 +47,9 @@ interface Client {
     confirmed_count: number;
     completed_count: number;
     cancelled_count: number;
+    days_since_last?: number;
+    cancellation_rate?: number;
+    ml_churn?: MlPrediction | null;
     bookings: Booking[];
 }
 
@@ -292,6 +296,16 @@ export default function ClientsIndex({ stats, clients }: ClientsIndexProps) {
                                                             1 && 's'}
                                                     </span>
                                                 </div>
+
+                                                {/* Predicción ML M2 — Riesgo de Churn */}
+                                                {client.ml_churn && (
+                                                    <MlInsightCard
+                                                        title="Riesgo de No Regresar"
+                                                        prediction={client.ml_churn}
+                                                        className="mt-3"
+                                                        compact
+                                                    />
+                                                )}
                                             </div>
 
                                             {expandedClient === client.email && (

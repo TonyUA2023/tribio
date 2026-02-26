@@ -17,12 +17,10 @@ use App\Http\Controllers\BusinessSettingsController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\ReviewManagementController;
 use App\Http\Controllers\Api\StoryController;
-// 👇 NUEVO CONTROLADOR PARA PEDIDOS PÚBLICOS
 use App\Http\Controllers\PublicCheckoutController;
-// 👇 NUEVO CONTROLADOR PARA ONBOARDING
 use App\Http\Controllers\OnboardingController;
-// 👇 CONTROLADOR PARA SELECCIÓN DE CUENTAS (MULTI-NEGOCIO)
 use App\Http\Controllers\AccountSelectorController;
+use App\Http\Controllers\BusinessTypeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -68,6 +66,11 @@ Route::get('/privacidad', function () {
     return Inertia::render('web/PrivacyPolicy');
 })->name('privacy');
 
+// --- Pasarela de compra de Tarjetas NFC ---
+Route::get('/comprar-tarjeta-nfc', function () {
+    return Inertia::render('web/ComprarTarjetaNfc');
+})->name('comprar-tarjeta-nfc');
+
 // --- RUTAS PROTEGIDAS (PANEL DE CLIENTE/DUEÑO) ---
 Route::middleware(['auth', 'verified'])->group(function () {
     // Rutas para selección de cuenta (multi-negocio)
@@ -79,6 +82,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('onboarding')->name('onboarding.')->group(function () {
         Route::get('/', [OnboardingController::class, 'show'])->name('show');
         Route::post('/', [OnboardingController::class, 'store'])->name('store');
+    });
+
+    // Rutas para selección de tipo de negocio
+    Route::prefix('business-type')->name('business-type.')->group(function () {
+        Route::get('/select', [BusinessTypeController::class, 'select'])->name('select');
+        Route::post('/store', [BusinessTypeController::class, 'store'])->name('store');
     });
 
     // Grupo de rutas que requieren que el onboarding esté completo.
@@ -94,14 +103,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('/business', [BusinessSettingsController::class, 'index'])->name('business');
             Route::post('/business', [BusinessSettingsController::class, 'update'])->name('business.update');
+            Route::post('/business/payment', [BusinessSettingsController::class, 'updatePaymentSettings'])->name('business.payment.update');
 
             Route::get('/page', [PageSettingsController::class, 'index'])->name('page');
-            Route::post('/page/upload-gallery', [PageSettingsController::class, 'uploadGalleryMedia'])->name('page.upload-gallery');
             Route::post('/page/upload-loading-screen', [PageSettingsController::class, 'uploadLoadingScreen'])->name('page.upload-loading-screen');
             Route::post('/page/upload-profile-logo', [PageSettingsController::class, 'uploadProfileLogo'])->name('page.upload-profile-logo');
             Route::post('/page/upload-cover-photo', [PageSettingsController::class, 'uploadCoverPhoto'])->name('page.upload-cover-photo');
             Route::delete('/page/media/{media}', [PageSettingsController::class, 'deleteMedia'])->name('page.delete-media');
-            Route::post('/page/reorder-gallery', [PageSettingsController::class, 'reorderGallery'])->name('page.reorder-gallery');
+
+            // Módulo de Plantillas (Personal y Tienda)
+            Route::get('/templates', [\App\Http\Controllers\TemplateSettingsController::class, 'index'])->name('templates');
+            Route::post('/templates', [\App\Http\Controllers\TemplateSettingsController::class, 'update'])->name('templates.update');
+            Route::post('/templates/config', [\App\Http\Controllers\TemplateSettingsController::class, 'updateConfig'])->name('templates.update-config');
+            Route::post('/templates/upload-logo', [\App\Http\Controllers\TemplateSettingsController::class, 'uploadLogo'])->name('templates.upload-logo');
+            Route::post('/templates/upload-cover', [\App\Http\Controllers\TemplateSettingsController::class, 'uploadCover'])->name('templates.upload-cover');
+            Route::get('/templates/{templateId}/edit', [\App\Http\Controllers\TemplateSettingsController::class, 'editor'])->name('templates.editor');
+            Route::post('/templates/upload-image', [\App\Http\Controllers\TemplateSettingsController::class, 'uploadImage'])->name('templates.upload-image');
+            Route::post('/templates/save-editor', [\App\Http\Controllers\TemplateSettingsController::class, 'saveEditor'])->name('templates.save-editor');
         });
 
         // Módulo de Citas
@@ -169,6 +187,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{order}', [\App\Http\Controllers\OrderController::class, 'destroy'])->name('destroy');
             Route::get('/stats/dashboard', [\App\Http\Controllers\OrderController::class, 'stats'])->name('stats');
         });
+
+        // Módulo de Categorías de Productos
+        Route::prefix('categories')->name('categories.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\ProductCategoryController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\ProductCategoryController::class, 'store'])->name('store');
+            Route::put('/{category}', [\App\Http\Controllers\ProductCategoryController::class, 'update'])->name('update');
+            Route::delete('/{category}', [\App\Http\Controllers\ProductCategoryController::class, 'destroy'])->name('destroy');
+            Route::patch('/{category}/toggle-active', [\App\Http\Controllers\ProductCategoryController::class, 'toggleActive'])->name('toggle-active');
+        });
+
+        // Módulo de Marcas
+        Route::prefix('brands')->name('brands.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\BrandController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\BrandController::class, 'store'])->name('store');
+            Route::put('/{brand}', [\App\Http\Controllers\BrandController::class, 'update'])->name('update');
+            Route::delete('/{brand}', [\App\Http\Controllers\BrandController::class, 'destroy'])->name('destroy');
+            Route::patch('/{brand}/toggle-active', [\App\Http\Controllers\BrandController::class, 'toggleActive'])->name('toggle-active');
+        });
+
+        // Mis Compras (perfil de comprador del usuario)
+        Route::get('/mis-compras', [\App\Http\Controllers\MyPurchasesController::class, 'index'])
+            ->name('my-purchases');
     });
 });
 
@@ -220,9 +260,114 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 // RUTAS PÚBLICAS Y DE PERFILES (COMODÍN - ESTAS VAN AL FINAL)
 // =========================================================================
 
-// 🔥 NUEVO: Ruta pública para guardar pedidos (Checkout Web)
-// Debe ir ANTES de los comodines genéricos /{account_slug}
+// 🛒 TIENDA VIRTUAL PROFESIONAL (Store Pages)
+// Rutas específicas deben ir ANTES de los comodines genéricos
+Route::prefix('{account_slug}')->group(function () {
+    // Tienda - Home
+    Route::get('/tienda', [\App\Http\Controllers\Public\StoreDisplayController::class, 'home'])
+        ->name('store.home');
+
+    // Tienda - Catálogo/Productos
+    Route::get('/productos', [\App\Http\Controllers\Public\StoreDisplayController::class, 'catalog'])
+        ->name('store.catalog');
+
+    // Tienda - Búsqueda
+    Route::get('/buscar', [\App\Http\Controllers\Public\StoreDisplayController::class, 'search'])
+        ->name('store.search');
+
+    // Tienda - Ofertas
+    Route::get('/ofertas', [\App\Http\Controllers\Public\StoreDisplayController::class, 'offers'])
+        ->name('store.offers');
+
+    // Tienda - Lo Nuevo
+    Route::get('/nuevo', [\App\Http\Controllers\Public\StoreDisplayController::class, 'newArrivals'])
+        ->name('store.new');
+
+    // Tienda - Por Género (hombre, mujer, niños)
+    Route::get('/hombre', [\App\Http\Controllers\Public\StoreDisplayController::class, 'gender'])
+        ->defaults('gender', 'hombre')
+        ->name('store.gender.hombre');
+    Route::get('/mujer', [\App\Http\Controllers\Public\StoreDisplayController::class, 'gender'])
+        ->defaults('gender', 'mujer')
+        ->name('store.gender.mujer');
+    Route::get('/ninos', [\App\Http\Controllers\Public\StoreDisplayController::class, 'gender'])
+        ->defaults('gender', 'ninos')
+        ->name('store.gender.ninos');
+
+    // Tienda - Por Marca
+    Route::get('/marca/{brand_slug}', [\App\Http\Controllers\Public\StoreDisplayController::class, 'brand'])
+        ->name('store.brand');
+
+    // Tienda - Categoría
+    Route::get('/categoria/{category_slug}', [\App\Http\Controllers\Public\StoreDisplayController::class, 'category'])
+        ->name('store.category');
+
+    // Tienda - Subcategoría
+    Route::get('/categoria/{category_slug}/{subcategory_slug}', [\App\Http\Controllers\Public\StoreDisplayController::class, 'subcategory'])
+        ->name('store.subcategory');
+
+    // Tienda - Detalle de Producto
+    Route::get('/producto/{product_slug}', [\App\Http\Controllers\Public\StoreDisplayController::class, 'product'])
+        ->name('store.product');
+
+    // Tienda - Checkout (dentro del template Nike)
+    Route::get('/checkout', [\App\Http\Controllers\Public\StoreDisplayController::class, 'checkout'])
+        ->name('store.checkout');
+
+    // Tienda - Carrito
+    Route::get('/carrito', [\App\Http\Controllers\Public\StoreDisplayController::class, 'checkout'])
+        ->name('store.cart');
+
+    // Tienda - Favoritos
+    Route::get('/favoritos', function ($accountSlug) {
+        return Inertia::render('Store/StoreWishlist', [
+            'account_slug' => $accountSlug,
+        ]);
+    })->name('store.wishlist');
+
+    // =========================================================================
+    // AUTENTICACIÓN DE CLIENTES (Compradores)
+    // =========================================================================
+    Route::prefix('cuenta')->name('store.customer.')->group(function () {
+        // Rutas públicas (sin autenticación)
+        Route::get('/login', [\App\Http\Controllers\Public\CustomerAuthController::class, 'showLogin'])
+            ->name('login');
+        Route::post('/login', [\App\Http\Controllers\Public\CustomerAuthController::class, 'login'])
+            ->name('login.submit');
+        Route::get('/registro', [\App\Http\Controllers\Public\CustomerAuthController::class, 'showRegister'])
+            ->name('register');
+        Route::post('/registro', [\App\Http\Controllers\Public\CustomerAuthController::class, 'register'])
+            ->name('register.submit');
+
+        // Rutas protegidas (requieren autenticación de cliente)
+        Route::middleware(['auth'])->group(function () {
+            Route::get('/', [\App\Http\Controllers\Public\CustomerAuthController::class, 'dashboard'])
+                ->name('dashboard');
+            Route::get('/pedidos', [\App\Http\Controllers\Public\CustomerAuthController::class, 'orders'])
+                ->name('orders');
+            Route::get('/configuracion', [\App\Http\Controllers\Public\CustomerAuthController::class, 'settings'])
+                ->name('settings');
+            Route::post('/configuracion', [\App\Http\Controllers\Public\CustomerAuthController::class, 'updateSettings'])
+                ->name('settings.update');
+            Route::post('/logout', [\App\Http\Controllers\Public\CustomerAuthController::class, 'logout'])
+                ->name('logout');
+        });
+    });
+});
+
+// Ruta para guardar direcciones del cliente
+Route::post('/{account_slug}/checkout/save-addresses', [PublicCheckoutController::class, 'saveAddresses'])
+    ->middleware(['auth'])
+    ->name('public.checkout.save-addresses');
+
+// Ruta para crear orden Culqi (requerida para Yape)
+Route::post('/{account_slug}/checkout/create-order', [PublicCheckoutController::class, 'createCulqiOrder'])
+    ->middleware(['auth'])
+    ->name('public.checkout.create-order');
+
+// Ruta para procesar pedidos (Checkout Web con Culqi + WhatsApp)
 Route::post('/{account_slug}/checkout', [PublicCheckoutController::class, 'store'])
+    ->middleware(['auth'])
     ->name('public.checkout');
 
 // Ruta para feed de posts estilo TikTok

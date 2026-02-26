@@ -50,8 +50,21 @@ export interface Personal3DConfig {
   ctaMode?: 'booking' | 'contact' | 'none'; 
 }
 
+interface SeoData {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  url?: string;
+  image?: string;
+  type?: string;
+  site_name?: string;
+  structured_data?: Record<string, unknown>;
+}
+
 interface TemplateProps {
   config: Personal3DConfig;
+  seo?: SeoData;
+  account?: { id: number; slug: string; name: string };
 }
 
 // --- UTILIDADES ---
@@ -129,7 +142,7 @@ const ElegantLinkButton = ({ href, icon, label, primaryColor }: { href: string, 
 );
 
 // --- COMPONENTE PRINCIPAL ---
-export const PersonalProfile3D: React.FC<TemplateProps> = ({ config }) => {
+export const PersonalProfile3D: React.FC<TemplateProps> = ({ config, seo, account }) => {
   // Color por defecto Dorado Eclesiástico si no viene uno
   const primaryColor = config.primaryColor || '#d4af37'; 
   
@@ -190,9 +203,36 @@ export const PersonalProfile3D: React.FC<TemplateProps> = ({ config }) => {
     <>
       {isLoading && <LoadingScreen />}
 
-      <Head title={`${businessName} | Perfil Oficial`}>
+      <Head title={seo?.title || `${businessName} | Perfil Oficial`}>
+        <meta name="description" content={seo?.description || businessBio || `${businessName} - ${businessTitle}`} />
+        <meta name="keywords" content={seo?.keywords || `${businessName}, ${businessTitle}, perfil profesional`} />
+        <link rel="canonical" href={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+
+        <meta property="og:type" content={seo?.type || 'profile'} />
+        <meta property="og:title" content={seo?.title || businessName} />
+        <meta property="og:description" content={seo?.description || businessBio || businessTitle} />
+        <meta property="og:url" content={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+        <meta property="og:site_name" content={seo?.site_name || 'TRIBIO'} />
+        <meta property="og:locale" content="es_PE" />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta property="og:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo?.title || businessName} />
+        <meta name="twitter:description" content={seo?.description || businessBio || businessTitle} />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta name="twitter:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
         <meta name="theme-color" content="#020617" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+        {seo?.structured_data && (
+          <script type="application/ld+json">
+            {JSON.stringify(seo.structured_data)}
+          </script>
+        )}
       </Head>
 
       {/* FONDO GLOBAL: Degradado solemne (Slate oscuro a negro) */}

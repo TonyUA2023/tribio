@@ -22,12 +22,12 @@ export default defineConfig({
         }),
     ],
     server: {
-        host: '0.0.0.0', // Permite acceso desde cualquier IP de la red
+        host: '0.0.0.0',
         port: 5173,
         strictPort: true,
         hmr: {
-            host: '192.168.18.129', // Tu IP local
-            protocol: 'ws',
+            host: '192.168.18.121',
+            port: 5173,
         },
         watch: {
             usePolling: true,

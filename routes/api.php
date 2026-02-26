@@ -5,7 +5,7 @@ use App\Http\Controllers\Api\CronController;
 use App\Http\Controllers\Api\StoryController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AccountProfileController;
-use App\Http\Controllers\Api\GalleryController;
+// GalleryController eliminado - ahora usamos publicaciones e historias
 use App\Http\Controllers\Api\StoriesController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingsController;
@@ -94,13 +94,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/account/profile', [AccountProfileController::class, 'update']);
     Route::post('/account/profile/logo', [AccountProfileController::class, 'uploadLogo']);
     Route::post('/account/profile/cover', [AccountProfileController::class, 'uploadCover']);
-
-    // Galería
-    Route::get('/account/gallery', [GalleryController::class, 'index']);
-    Route::post('/account/gallery', [GalleryController::class, 'store']);
-    Route::put('/account/gallery/{id}', [GalleryController::class, 'update']);
-    Route::delete('/account/gallery/{id}', [GalleryController::class, 'destroy']);
-    Route::post('/account/gallery/reorder', [GalleryController::class, 'reorder']);
 
     // Stories
     Route::get('/account/stories', [StoriesController::class, 'index']);

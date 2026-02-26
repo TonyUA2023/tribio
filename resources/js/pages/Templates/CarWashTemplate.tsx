@@ -66,11 +66,24 @@ export interface CarWashConfig {
   templateConfig?: TemplateConfig;
 }
 
+interface SeoData {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  url?: string;
+  image?: string;
+  type?: string;
+  site_name?: string;
+  structured_data?: Record<string, unknown>;
+}
+
 interface CarWashTemplateProps {
   config: CarWashConfig;
   customizations?: any;
   activeModules?: string[];
   templateConfig?: TemplateConfig;
+  seo?: SeoData;
+  account?: { id: number; slug: string; name: string };
 }
 
 // --- UTIL ---
@@ -89,6 +102,8 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
   customizations,
   activeModules = [],
   templateConfig,
+  seo,
+  account,
 }) => {
   const finalConfig = useMemo(
     () => ({
@@ -176,12 +191,39 @@ export const CarWashTemplate: React.FC<CarWashTemplateProps> = ({
 
   return (
     <>
-      <Head title={businessName || 'Car Detailing'}>
+      <Head title={seo?.title || businessName || 'Car Detailing'}>
+        <meta name="description" content={seo?.description || businessBio || `${businessName} - ${businessTitle || 'Car Detailing Profesional'}`} />
+        <meta name="keywords" content={seo?.keywords || `${businessName}, car wash, car detailing, lavado de autos, ${businessTitle || ''}`} />
+        <link rel="canonical" href={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+
+        <meta property="og:type" content={seo?.type || 'business.business'} />
+        <meta property="og:title" content={seo?.title || businessName || 'Car Detailing'} />
+        <meta property="og:description" content={seo?.description || businessBio || businessTitle || ''} />
+        <meta property="og:url" content={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+        <meta property="og:site_name" content={seo?.site_name || 'TRIBIO'} />
+        <meta property="og:locale" content="es_PE" />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta property="og:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo?.title || businessName || 'Car Detailing'} />
+        <meta name="twitter:description" content={seo?.description || businessBio || businessTitle || ''} />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta name="twitter:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
         />
         <meta name="theme-color" content={bg} />
+
+        {seo?.structured_data && (
+          <script type="application/ld+json">
+            {JSON.stringify(seo.structured_data)}
+          </script>
+        )}
       </Head>
 
       <div

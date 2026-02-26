@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\GetsCurrentAccount;
 use App\Models\Booking;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class AppointmentsController extends Controller
 {
+    use GetsCurrentAccount;
+
     public function index(Request $request)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return redirect()->route('dashboard');
@@ -57,7 +60,7 @@ class AppointmentsController extends Controller
     public function updateStatus(Request $request, Booking $booking)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         // Verificar que la cita pertenece a la cuenta del usuario
         if ($booking->account_id !== $account->id) {

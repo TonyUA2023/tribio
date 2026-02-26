@@ -17,7 +17,7 @@ import { useInitials } from '@/hooks/use-initials';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { type SharedData, type UserAccount } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Building2, Check, ChevronsUpDown, LogOut, Plus, Settings, User } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, LogOut, Plus, Settings, User, ShoppingBag, Store, ArrowRightLeft } from 'lucide-react';
 
 export function NavBusinessSwitcher() {
     const { auth, account, userAccounts } = usePage<SharedData>().props;
@@ -171,6 +171,36 @@ export function NavBusinessSwitcher() {
                                 </Link>
                             </DropdownMenuItem>
                         )}
+
+                        {/* Ver tienda - Si tiene tienda configurada */}
+                        {currentAccount && (
+                            <DropdownMenuItem asChild>
+                                <Link
+                                    href={`/${currentAccount.slug}/tienda`}
+                                    target="_blank"
+                                    className="flex items-center gap-3 px-3 py-2 cursor-pointer"
+                                >
+                                    <Store className="h-4 w-4" />
+                                    <span className="text-sm">Ver tienda</span>
+                                </Link>
+                            </DropdownMenuItem>
+                        )}
+
+                        <DropdownMenuSeparator />
+
+                        {/* Mis compras - Acceso al panel de cliente/comprador */}
+                        <DropdownMenuItem asChild>
+                            <Link
+                                href="/mis-compras"
+                                className="flex items-center gap-3 px-3 py-2 cursor-pointer"
+                            >
+                                <ShoppingBag className="h-4 w-4" />
+                                <span className="text-sm">Mis compras</span>
+                                <span className="ml-auto text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                    Nuevo
+                                </span>
+                            </Link>
+                        </DropdownMenuItem>
 
                         {/* Configuración de cuenta */}
                         <DropdownMenuItem asChild>

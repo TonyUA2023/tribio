@@ -1,6 +1,6 @@
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
-import { Form, Head, usePage } from '@inertiajs/react';
+import { Form, Head, useForm, usePage } from '@inertiajs/react';
 
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
@@ -8,6 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+
+interface PaymentSettings {
+    culqi_enabled: boolean;
+    culqi_public_key: string;
+    culqi_secret_key: string;
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -21,7 +27,20 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function BusinessSettings() {
-    const { account } = usePage<SharedData>().props;
+    const { account, paymentSettings: initialPaymentSettings } = usePage<SharedData & { paymentSettings: PaymentSettings }>().props;
+
+    const paymentForm = useForm({
+        culqi_enabled: initialPaymentSettings?.culqi_enabled ?? false,
+        culqi_public_key: initialPaymentSettings?.culqi_public_key ?? '',
+        culqi_secret_key: initialPaymentSettings?.culqi_secret_key ?? '',
+    });
+
+    const submitPaymentSettings = (e: React.FormEvent) => {
+        e.preventDefault();
+        paymentForm.post('/settings/business/payment', {
+            preserveScroll: true,
+        });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -177,6 +196,102 @@ export default function BusinessSettings() {
                             </>
                         )}
                     </Form>
+                </div>
+
+                <div className="space-y-6 rounded-lg border bg-card p-6 shadow-sm">
+                    <HeadingSmall
+                        title="Pasarela de Pagos"
+                        description="Configura tus credenciales de Culqi para aceptar pagos con tarjeta y Yape"
+                    />
+
+                    <form onSubmit={submitPaymentSettings} className="space-y-6">
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={paymentForm.data.culqi_enabled}
+                                onClick={() => paymentForm.setData('culqi_enabled', !paymentForm.data.culqi_enabled)}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                                    paymentForm.data.culqi_enabled ? 'bg-primary' : 'bg-input'
+                                }`}
+                            >
+                                <span
+                                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform duration-200 ease-in-out ${
+                                        paymentForm.data.culqi_enabled ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                />
+                            </button>
+                            <Label>
+                                Habilitar pagos con Culqi
+                            </Label>
+                        </div>
+
+                        {paymentForm.data.culqi_enabled && (
+                            <div className="space-y-4 rounded-md border bg-muted/30 p-4">
+                                <p className="text-xs text-muted-foreground">
+                                    Ingresa tus credenciales de Culqi. Puedes obtenerlas desde el{' '}
+                                    <a
+                                        href="https://panel.culqi.com"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary underline"
+                                    >
+                                        panel de Culqi
+                                    </a>.
+                                </p>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="culqi_public_key">
+                                        Llave Pública (Public Key)
+                                    </Label>
+                                    <Input
+                                        id="culqi_public_key"
+                                        value={paymentForm.data.culqi_public_key}
+                                        onChange={(e) => paymentForm.setData('culqi_public_key', e.target.value)}
+                                        placeholder="pk_live_xxxxxxxxxxxxxxxxxx"
+                                        className="font-mono text-sm"
+                                    />
+                                    <InputError message={paymentForm.errors.culqi_public_key} />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="culqi_secret_key">
+                                        Llave Secreta (Secret Key)
+                                    </Label>
+                                    <Input
+                                        id="culqi_secret_key"
+                                        type="password"
+                                        value={paymentForm.data.culqi_secret_key}
+                                        onChange={(e) => paymentForm.setData('culqi_secret_key', e.target.value)}
+                                        placeholder="sk_live_xxxxxxxxxxxxxxxxxx"
+                                        className="font-mono text-sm"
+                                    />
+                                    <InputError message={paymentForm.errors.culqi_secret_key} />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-4">
+                            <Button
+                                type="submit"
+                                disabled={paymentForm.processing}
+                            >
+                                Guardar Configuración de Pagos
+                            </Button>
+
+                            <Transition
+                                show={paymentForm.recentlySuccessful}
+                                enter="transition ease-in-out"
+                                enterFrom="opacity-0"
+                                leave="transition ease-in-out"
+                                leaveTo="opacity-0"
+                            >
+                                <p className="text-sm text-muted-foreground">
+                                    Configuración de pagos guardada
+                                </p>
+                            </Transition>
+                        </div>
+                    </form>
                 </div>
 
                 <div className="space-y-6 rounded-lg border bg-card p-6 shadow-sm">

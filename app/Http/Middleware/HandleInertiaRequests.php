@@ -46,13 +46,13 @@ class HandleInertiaRequests extends Middleware
 
         if ($user) {
             if ($currentAccountId) {
-                // Intentar obtener la cuenta de la sesión
-                $account = $user->accounts()->where('id', $currentAccountId)->first();
+                // Intentar obtener la cuenta de la sesión con businessType
+                $account = $user->accounts()->with('businessType')->where('id', $currentAccountId)->first();
             }
 
             // Si no hay cuenta en sesión o no es válida, usar la primera
             if (!$account) {
-                $account = $user->accounts()->first();
+                $account = $user->accounts()->with('businessType')->first();
                 if ($account) {
                     session(['current_account_id' => $account->id]);
                 }
@@ -89,6 +89,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
+            'filesystemPublicPath' => env('FILESYSTEM_PUBLIC_PATH', 'storage'),
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,
@@ -108,6 +109,11 @@ class HandleInertiaRequests extends Middleware
                     'name' => $profile->name,
                     'title' => $profile->title,
                     'slug' => $profile->slug,
+                ] : null,
+                'businessType' => $account->businessType ? [
+                    'id' => $account->businessType->id,
+                    'slug' => $account->businessType->slug,
+                    'name' => $account->businessType->name,
                 ] : null,
             ] : null,
             'userAccounts' => $userAccounts,

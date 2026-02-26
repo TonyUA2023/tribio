@@ -58,6 +58,10 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'ml' => [
+        'url' => env('ML_API_URL', 'https://tonyua-tribio.hf.space'),
+    ],
+
     'culqi' => [
         // Llave pública (usada en frontend para tokenizar tarjetas)
         'public_key' => env('CULQI_PUBLIC_KEY'),

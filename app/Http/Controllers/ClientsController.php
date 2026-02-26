@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\GetsCurrentAccount;
 use App\Models\Booking;
+use App\Services\MlPredictionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
@@ -10,10 +12,12 @@ use Inertia\Inertia;
 
 class ClientsController extends Controller
 {
+    use GetsCurrentAccount;
+
     public function index(Request $request)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return redirect()->route('dashboard');
@@ -40,6 +44,13 @@ class ClientsController extends Controller
                     ->orderBy('booking_date', 'desc')
                     ->get();
 
+                $completedCount = $bookings->where('status', 'completed')->count();
+                $cancelledCount = $bookings->where('status', 'cancelled')->count();
+                $totalCount     = $bookings->count();
+                $daysSinceLast  = $client->last_booking_date
+                    ? (int) Carbon::parse($client->last_booking_date)->diffInDays(now())
+                    : 999;
+
                 return [
                     'name' => $client->client_name,
                     'email' => $client->client_email,
@@ -49,8 +60,10 @@ class ClientsController extends Controller
                     'first_booking_date' => $client->first_booking_date ? Carbon::parse($client->first_booking_date)->format('Y-m-d') : null,
                     'pending_count' => $bookings->where('status', 'pending')->count(),
                     'confirmed_count' => $bookings->where('status', 'confirmed')->count(),
-                    'completed_count' => $bookings->where('status', 'completed')->count(),
-                    'cancelled_count' => $bookings->where('status', 'cancelled')->count(),
+                    'completed_count' => $completedCount,
+                    'cancelled_count' => $cancelledCount,
+                    'days_since_last' => $daysSinceLast,
+                    'cancellation_rate' => $totalCount > 0 ? round($cancelledCount / $totalCount, 2) : 0,
                     'bookings' => $bookings->map(function ($booking) {
                         return [
                             'id' => $booking->id,
@@ -63,6 +76,23 @@ class ClientsController extends Controller
                     }),
                 ];
             });
+
+        // Predicciones M2 churn en batch (máx 20 clientes para no sobrecargar)
+        $mlService = new MlPredictionService();
+        $churnSlice = $clients->take(20);
+        $churnPayloads = $churnSlice->map(fn($c) => [
+            'days_since_last_order' => $c['days_since_last'],
+            'total_orders_paid'     => $c['completed_count'],
+            'avg_order_value'       => 0.0,
+            'cancellation_rate'     => $c['cancellation_rate'],
+        ])->values()->all();
+
+        $churnResults = $mlService->batchPredict($churnPayloads, '/predict/churn');
+
+        $clients = $clients->map(function ($client, $index) use ($churnResults) {
+            $client['ml_churn'] = $churnResults[$index] ?? null;
+            return $client;
+        });
 
         // Estadísticas generales
         $stats = [

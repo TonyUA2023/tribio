@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\GetsCurrentAccount;
 use App\Models\Review;
 use App\Models\Profile;
 use Illuminate\Http\Request;
@@ -10,13 +11,14 @@ use Inertia\Inertia;
 
 class ReviewManagementController extends Controller
 {
+    use GetsCurrentAccount;
     /**
      * Muestra la página de administración de reseñas
      */
     public function index(Request $request)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return redirect()->route('dashboard')
@@ -49,7 +51,7 @@ class ReviewManagementController extends Controller
     {
         // Verificar que la reseña pertenece al usuario
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'No autorizado'], 403);
@@ -82,7 +84,7 @@ class ReviewManagementController extends Controller
         ]);
 
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'No autorizado'], 403);
@@ -115,7 +117,7 @@ class ReviewManagementController extends Controller
     public function destroy(Request $request, Review $review)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'No autorizado'], 403);
@@ -143,7 +145,7 @@ class ReviewManagementController extends Controller
     public function approve(Request $request, Review $review)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'No autorizado'], 403);
@@ -170,7 +172,7 @@ class ReviewManagementController extends Controller
     public function reject(Request $request, Review $review)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return response()->json(['error' => 'No autorizado'], 403);

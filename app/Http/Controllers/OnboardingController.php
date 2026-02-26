@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\GetsCurrentAccount;
 use App\Models\BusinessCategory;
 use App\Models\Template;
 use App\Models\Profile;
@@ -11,12 +12,14 @@ use Inertia\Inertia;
 
 class OnboardingController extends Controller
 {
+    use GetsCurrentAccount;
+
     /**
      * Muestra la página de configuración inicial.
      */
     public function show()
     {
-        $account = Auth::user()->account;
+        $account = $this->getCurrentAccount(Auth::user());
 
         // Carga las categorías base (sin padre) con sus subcategorías
         $categories = BusinessCategory::with('children')
@@ -46,7 +49,7 @@ class OnboardingController extends Controller
             'template_id' => 'required|exists:templates,id',
         ]);
 
-        $account = Auth::user()->account;
+        $account = $this->getCurrentAccount(Auth::user());
 
         $categoryId = $validated['business_category_id'] ?? null;
         $meta = $account->meta ?? [];

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\GetsCurrentAccount;
 use App\Models\Account;
 use App\Models\Profile;
 use Illuminate\Http\Request;
@@ -11,12 +12,25 @@ use Inertia\Inertia;
 
 class BusinessSettingsController extends Controller
 {
+    use GetsCurrentAccount;
     /**
      * Mostrar la página de configuración del negocio
      */
     public function index(Request $request)
     {
-        return Inertia::render('settings/business');
+        $user = $request->user();
+        $account = $this->getCurrentAccount($user);
+
+        $paymentSettings = $account?->payment_settings ?? [];
+        $culqiSettings = $paymentSettings['culqi'] ?? [];
+
+        return Inertia::render('settings/business', [
+            'paymentSettings' => [
+                'culqi_enabled' => !empty($culqiSettings['enabled']),
+                'culqi_public_key' => $culqiSettings['public_key'] ?? '',
+                'culqi_secret_key' => $culqiSettings['secret_key'] ?? '',
+            ],
+        ]);
     }
 
     /**
@@ -25,7 +39,7 @@ class BusinessSettingsController extends Controller
     public function update(Request $request)
     {
         $user = $request->user();
-        $account = $user->account()->first();
+        $account = $this->getCurrentAccount($user);
 
         if (!$account) {
             return redirect()->route('dashboard')
@@ -66,5 +80,37 @@ class BusinessSettingsController extends Controller
         ]);
 
         return back()->with('success', 'Configuración actualizada exitosamente');
+    }
+
+    /**
+     * Actualizar configuración de pasarela de pagos (Culqi)
+     */
+    public function updatePaymentSettings(Request $request)
+    {
+        $user = $request->user();
+        $account = $this->getCurrentAccount($user);
+
+        if (!$account) {
+            return redirect()->route('dashboard')
+                ->with('error', 'No se encontró una cuenta asociada');
+        }
+
+        $validated = $request->validate([
+            'culqi_enabled' => ['required', 'boolean'],
+            'culqi_public_key' => ['nullable', 'string', 'max:255'],
+            'culqi_secret_key' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $paymentSettings = $account->payment_settings ?? [];
+
+        $paymentSettings['culqi'] = [
+            'enabled' => $validated['culqi_enabled'],
+            'public_key' => $validated['culqi_public_key'] ?? '',
+            'secret_key' => $validated['culqi_secret_key'] ?? '',
+        ];
+
+        $account->update(['payment_settings' => $paymentSettings]);
+
+        return back()->with('success', 'Configuración de pagos actualizada exitosamente');
     }
 }

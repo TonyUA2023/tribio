@@ -74,9 +74,22 @@ export interface ProductTemplateConfig {
   accountSlug: string;
 }
 
+interface SeoData {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  url?: string;
+  image?: string;
+  type?: string;
+  site_name?: string;
+  structured_data?: Record<string, unknown>;
+}
+
 interface ProductTemplateProps {
   config: ProductTemplateConfig;
   customizations?: any;
+  seo?: SeoData;
+  account?: { id: number; slug: string; name: string };
 }
 
 // --- UTILIDADES ---
@@ -289,7 +302,7 @@ const CustomerModal = ({
 };
 
 // --- COMPONENTE PRINCIPAL ---
-export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config, customizations }) => {
+export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config, customizations, seo, account }) => {
   const finalConfig = useMemo(() => ({ ...config, ...(customizations || {}) }), [config, customizations]);
 
   const {
@@ -449,9 +462,41 @@ export const ProductShowcaseTemplate: React.FC<ProductTemplateProps> = ({ config
         />
       )}
 
-      <Head title={`${businessName} | Menú`}>
+      <Head title={seo?.title || businessName}>
+        {/* SEO Meta Tags */}
+        <meta name="description" content={seo?.description || businessBio || `${businessName} - ${businessTitle}`} />
+        <meta name="keywords" content={seo?.keywords || `${businessName}, productos, menú, TRIBIO`} />
+        <link rel="canonical" href={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content={seo?.type || 'business.business'} />
+        <meta property="og:title" content={seo?.title || businessName} />
+        <meta property="og:description" content={seo?.description || businessBio || businessTitle} />
+        <meta property="og:url" content={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+        <meta property="og:site_name" content={seo?.site_name || 'TRIBIO'} />
+        <meta property="og:locale" content="es_PE" />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta property="og:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo?.title || businessName} />
+        <meta name="twitter:description" content={seo?.description || businessBio || businessTitle} />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta name="twitter:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
+        {/* Theme & Viewport */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <meta name="theme-color" content={backgroundColor} />
+
+        {/* Structured Data */}
+        {seo?.structured_data && (
+          <script type="application/ld+json">
+            {JSON.stringify(seo.structured_data)}
+          </script>
+        )}
       </Head>
 
       <div className="flex justify-center items-center min-h-screen bg-neutral-950 md:p-8">

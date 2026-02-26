@@ -53,9 +53,22 @@ export interface ModernMinimalConfig {
   accountSlug: string;
 }
 
+interface SeoData {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  url?: string;
+  image?: string;
+  type?: string;
+  site_name?: string;
+  structured_data?: Record<string, unknown>;
+}
+
 interface ModernMinimalTemplateProps {
   config: ModernMinimalConfig;
   customizations?: any;
+  seo?: SeoData;
+  account?: { id: number; slug: string; name: string };
 }
 
 // --- UTILIDADES ---
@@ -166,7 +179,7 @@ const PremiumSocialButton = ({
 );
 
 // --- COMPONENTE PRINCIPAL ---
-export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ config, customizations }) => {
+export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ config, customizations, seo, account }) => {
   // 1. Mapeo de Variables: Configuración (Input) -> Estructura (Uso)
   const finalConfig = useMemo(() => ({
     ...config,
@@ -234,10 +247,41 @@ export const ModernMinimalTemplate: React.FC<ModernMinimalTemplateProps> = ({ co
         />
       )}
 
-      <Head title={businessName}>
-        {/* Viewport esencial para el diseño móvil */}
+      <Head title={seo?.title || businessName}>
+        {/* SEO Meta Tags */}
+        <meta name="description" content={seo?.description || businessBio || businessTitle} />
+        <meta name="keywords" content={seo?.keywords || `${businessName}, servicios, TRIBIO`} />
+        <link rel="canonical" href={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content={seo?.type || 'business.business'} />
+        <meta property="og:title" content={seo?.title || businessName} />
+        <meta property="og:description" content={seo?.description || businessBio || businessTitle} />
+        <meta property="og:url" content={seo?.url || (account ? `https://tribio.info/${account.slug}` : '')} />
+        <meta property="og:site_name" content={seo?.site_name || 'TRIBIO'} />
+        <meta property="og:locale" content="es_PE" />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta property="og:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo?.title || businessName} />
+        <meta name="twitter:description" content={seo?.description || businessBio || businessTitle} />
+        {(seo?.image || resolvedCover || resolvedLogo) && (
+          <meta name="twitter:image" content={seo?.image || resolvedCover || resolvedLogo} />
+        )}
+
+        {/* Theme & Viewport */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <meta name="theme-color" content="#020617" />
+
+        {/* Structured Data */}
+        {seo?.structured_data && (
+          <script type="application/ld+json">
+            {JSON.stringify(seo.structured_data)}
+          </script>
+        )}
       </Head>
 
       {/* === CONTENEDOR MAESTRO (Simulación de Dispositivo) === 
