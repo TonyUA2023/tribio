@@ -1,4 +1,4 @@
-# Tribio - Plataforma Multi-tenant NFC & E-commerce
+# Tribio - Plataforma Multi-tenant E-commerce con Modelo Predictivo de Machine Learnign
 
 Plataforma SaaS multi-tenant que combina tarjetas NFC inteligentes con tiendas en línea, perfiles de negocio personalizables y herramientas de gestión empresarial.
 
